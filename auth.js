@@ -29,7 +29,7 @@ const db = require('./database');
  * Handles password hashing, JWT generation/verification, and user operations
  */
 class Auth {
-  
+
   /**
    * Hash a password using bcrypt with salt rounds
    * @param {string} password - Plain text password to hash
@@ -51,7 +51,7 @@ class Auth {
       console.error('Invalid password or hash provided for verification');
       return false;
     }
-    
+
     try {
       return await bcrypt.compare(password, hashedPassword);
     } catch (error) {
@@ -67,14 +67,14 @@ class Auth {
    */
   generateToken(user) {
     return jwt.sign(
-      { 
-        id: user.id, 
-        username: user.username, 
+      {
+        id: user.id,
+        username: user.username,
         hotel_code: user.hotel_code,
         hotelCode: user.hotel_code, // Add both for compatibility
-        role: user.role 
-      }, 
-      config.jwtSecret, 
+        role: user.role
+      },
+      config.jwtSecret,
       { expiresIn: '24h' }
     );
   }
@@ -102,14 +102,14 @@ class Auth {
   async authenticateUser(username, password, hotel_code) {
     try {
       let query, params;
-      
+
       if (hotel_code) {
         // Query with hotel code filter
         query = `
           SELECT u.*, h.name as hotelName, h.code as hotelCode
           FROM users u
           LEFT JOIN hotels h ON UPPER(u.hotel_code) = UPPER(h.code)
-          WHERE u.username = @param1 AND u.hotel_code = @param2
+          WHERE u.username = ? AND u.hotel_code = ?
         `;
         params = [username, hotel_code];
       } else {
@@ -118,7 +118,7 @@ class Auth {
           SELECT u.*, h.name as hotelName, h.code as hotelCode
           FROM users u
           LEFT JOIN hotels h ON UPPER(u.hotel_code) = UPPER(h.code)
-          WHERE u.username = @param1
+          WHERE u.username = ?
         `;
         params = [username];
       }
@@ -130,11 +130,11 @@ class Auth {
       console.log('Authentication attempt for:', { username, hotel_code });
       console.log('Users found:', users.length);
       if (users.length > 0) {
-        console.log('User data:', { 
-          id: users[0].id, 
-          username: users[0].username, 
+        console.log('User data:', {
+          id: users[0].id,
+          username: users[0].username,
           hasPasswordHash: !!users[0].passwordHash,
-          hotel_code: users[0].hotel_code 
+          hotel_code: users[0].hotel_code
         });
       }
 
@@ -144,14 +144,14 @@ class Auth {
       }
 
       const user = users[0];
-      
+
       // Check if password exists (using password column for now, will migrate to passwordHash later)
       const storedPassword = user.passwordHash || user.password;
       if (!storedPassword) {
         console.error('User found but no password stored:', user.username);
         return null;
       }
-      
+
       // For now, do simple string comparison since existing passwords are plain text
       // TODO: Migrate to bcrypt hashing
       const isValidPassword = password === storedPassword;
@@ -190,16 +190,15 @@ class Auth {
     try {
       // Hash the password before storing
       const passwordHash = await this.hashPassword(password);
-      
+
       // Insert new user into database with hashed password (let database auto-generate ID)
       const result = await db.query(`
         INSERT INTO users (username, passwordHash, hotel_code, role, first_name, last_name)
-        OUTPUT INSERTED.id
-        VALUES (@param1, @param2, @param3, @param4, @param5, @param6)
+        VALUES (?, ?, ?, ?, ?, ?)
       `, [username, passwordHash, hotel_code, role, username, '']);
 
       // Get the auto-generated ID
-      const userId = result[0].id;
+      const userId = result.insertId;
 
       // Return created user object
       return { id: userId, username, hotel_code, role };

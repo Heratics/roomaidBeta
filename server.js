@@ -3,6 +3,8 @@
  * Main Express.js server for the hotel task management system
  * Handles authentication, API endpoints, and database operations
  */
+require('dotenv').config();
+
 
 // ============================================================================
 // IMPORTS AND DEPENDENCIES
@@ -67,21 +69,21 @@ app.use((req, res, next) => {
 // Rate limiting middleware
 app.use((req, res, next) => {
   const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
-  
+
   // More lenient rate limiting for admin pages and auth endpoints
   const isAdminPage = req.path.startsWith('/admin') || req.path.startsWith('/api/admin');
   const isAuthEndpoint = req.path.startsWith('/api/auth');
   const rateLimit = (isAdminPage || isAuthEndpoint) ? 200 : 100; // 200 requests per minute for admin/auth, 100 for others
   const isAllowed = validation.checkRateLimit(clientIP, rateLimit, 60000);
-  
+
   if (!isAllowed) {
     console.log(`Rate limit exceeded for IP: ${clientIP}, Path: ${req.path}`);
-    return res.status(429).json({ 
+    return res.status(429).json({
       error: 'Too many requests, please try again later',
       retryAfter: 60 // seconds
     });
   }
-  
+
   next();
 });
 
@@ -93,7 +95,7 @@ app.use(session({
   secret: config.jwtSecret, // Secret key for session encryption
   resave: false, // Don't save session if unmodified
   saveUninitialized: false, // Don't create session until something stored
-  cookie: { 
+  cookie: {
     secure: false, // Set to true in production with HTTPS
     maxAge: 24 * 60 * 60 * 1000 // Session expires in 24 hours
   }
@@ -113,7 +115,7 @@ app.use(session({
 const authenticateToken = (req, res, next) => {
   // Extract token from Authorization header or session
   const token = req.headers.authorization?.split(' ')[1] || req.session.token;
-  
+
   // Check if token exists
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
@@ -168,11 +170,11 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Authenticate user credentials with sanitized input
     const user = await auth.authenticateUser(
-      usernameValidation.value, 
-      passwordValidation.value, 
+      usernameValidation.value,
+      passwordValidation.value,
       hotelCodeValidation.value
     );
-    
+
     // Check if authentication failed
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -180,15 +182,15 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Generate JWT token for authenticated user
     const token = auth.generateToken(user);
-    
+
     // Store token in session for server-side access
     req.session.token = token;
     req.session.user = user;
 
     // Return success response with token and user data
-    res.json({ 
-      success: true, 
-      token, 
+    res.json({
+      success: true,
+      token,
       user: {
         id: user.id,
         username: user.username,
@@ -238,14 +240,14 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
     const tableName = department.toLowerCase() === 'engineering' ? 'engineering_orders' : 'housekeeping_orders';
     let query = `
       SELECT o.*, 
-             COALESCE(creator.first_name + ' ' + creator.last_name, creator.username) as creatorName,
+             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
              creator.username as creatorUsername,
-             COALESCE(assignee.first_name + ' ' + assignee.last_name, assignee.username) as receiverName,
+             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
              assignee.username as receiverUsername
       FROM ${tableName} o
       LEFT JOIN users creator ON o.sent_by = creator.id
       LEFT JOIN users assignee ON o.assigned_to = assignee.id
-      WHERE o.hotel_code = @param1 AND o.deleted_at IS NULL
+      WHERE o.hotel_code = ? AND o.deleted_at IS NULL
     `;
 
     // Filter by user's hotel code to ensure they only see orders from their hotel
@@ -254,7 +256,7 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
 
     // Add date filter if provided
     if (date) {
-      query += ` AND CAST(o.created_at AS DATE) = @param2`;
+      query += ` AND DATE(o.created_at) = ?`;
       params.push(date);
     }
 
@@ -306,26 +308,26 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
 
     // Insert new order into the appropriate department table (let database auto-generate ID)
     const tableName = departmentValidation.value.toLowerCase() === 'engineering' ? 'engineering_orders' : 'housekeeping_orders';
-    
+
     const hotelCode = user.hotel_code || user.hotelCode;
     console.log('Using hotel code:', hotelCode);
-    
+
     const result = await db.query(`
       INSERT INTO ${tableName} (order_name, order_notes, sent_by, created_at, hotel_code)
-      OUTPUT INSERTED.id
-      VALUES (@param1, @param2, @param3, GETDATE(), @param4)
+      VALUES (?, ?, ?, NOW(), ?)
     `, [`Room ${roomNumberValidation.value}`, notesValidation.value || '', user.id, hotelCode]);
-    
+
     // Get the auto-generated ID
-    const orderId = result[0].id;
+    // valid for mysql2/promise execute() result which returns [ResultSetHeader, FieldPacket[]]
+    const orderId = result.insertId;
 
     // Fetch the created order with creator information
     const orders = await db.query(`
       SELECT o.*, creator.username as creatorUsername, 
-             COALESCE(creator.first_name + ' ' + creator.last_name, creator.username) as creatorName
+             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName
       FROM ${tableName} o
       LEFT JOIN users creator ON o.sent_by = creator.id
-      WHERE o.id = @param1
+      WHERE o.id = ?
     `, [orderId]);
 
     // Return the created order
@@ -351,21 +353,21 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
     // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
     let tableName = null;
     let orderFound = false;
-    
+
     // Check engineering_orders first
-    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = @param1 AND hotel_code = @param2 AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
+    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
     if (checkResult.length > 0) {
       tableName = 'engineering_orders';
       orderFound = true;
     } else {
       // Check housekeeping_orders
-      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = @param1 AND hotel_code = @param2 AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
+      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
       if (checkResult.length > 0) {
         tableName = 'housekeeping_orders';
         orderFound = true;
       }
     }
-    
+
     if (!orderFound) {
       return res.status(404).json({ error: 'Order not found or access denied' });
     }
@@ -373,21 +375,21 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
     // Update order to assign to current user (this acts as "receiving" the order)
     await db.query(`
       UPDATE ${tableName} 
-      SET assigned_to = @param1
-      WHERE id = @param2
+      SET assigned_to = ?
+      WHERE id = ?
     `, [user.id, id]);
 
     // Fetch the updated order with creator and assignee information
     const orders = await db.query(`
       SELECT o.*, 
-             COALESCE(creator.first_name + ' ' + creator.last_name, creator.username) as creatorName,
+             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
              creator.username as creatorUsername,
-             COALESCE(assignee.first_name + ' ' + assignee.last_name, assignee.username) as receiverName,
+             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
              assignee.username as receiverUsername
       FROM ${tableName} o
       LEFT JOIN users creator ON o.sent_by = creator.id
       LEFT JOIN users assignee ON o.assigned_to = assignee.id
-      WHERE o.id = @param1
+      WHERE o.id = ?
     `, [id]);
 
     // Check if order was found
@@ -418,21 +420,21 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
     // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
     let tableName = null;
     let orderFound = false;
-    
+
     // Check engineering_orders first
-    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = @param1 AND hotel_code = @param2 AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
+    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
     if (checkResult.length > 0) {
       tableName = 'engineering_orders';
       orderFound = true;
     } else {
       // Check housekeeping_orders
-      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = @param1 AND hotel_code = @param2 AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
+      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
       if (checkResult.length > 0) {
         tableName = 'housekeeping_orders';
         orderFound = true;
       }
     }
-    
+
     if (!orderFound) {
       return res.status(404).json({ error: 'Order not found or access denied' });
     }
@@ -440,8 +442,8 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
     // Soft delete the order by setting deleted_at timestamp
     await db.query(`
       UPDATE ${tableName} 
-      SET deleted_at = @param1
-      WHERE id = @param2
+      SET deleted_at = ?
+      WHERE id = ?
     `, [new Date(), id]);
 
     // Return success response
@@ -475,29 +477,29 @@ app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
     // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
     let tableName = null;
     let orderFound = false;
-    
+
     // Check engineering_orders first
     console.log('Checking engineering_orders for order:', orderId);
-    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = @param1 AND hotel_code = @param2 AND deleted_at IS NULL`, [orderId, user.hotel_code || user.hotelCode]);
+    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [orderId, user.hotel_code || user.hotelCode]);
     console.log('Engineering check result:', checkResult);
-    
+
     if (checkResult.length > 0) {
       tableName = 'engineering_orders';
       orderFound = true;
     } else {
       // Check housekeeping_orders
       console.log('Checking housekeeping_orders for order:', orderId);
-      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = @param1 AND hotel_code = @param2 AND deleted_at IS NULL`, [orderId, user.hotel_code || user.hotelCode]);
+      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [orderId, user.hotel_code || user.hotelCode]);
       console.log('Housekeeping check result:', checkResult);
-      
+
       if (checkResult.length > 0) {
         tableName = 'housekeeping_orders';
         orderFound = true;
       }
     }
-    
+
     console.log('Order found:', orderFound, 'Table:', tableName);
-    
+
     if (!orderFound) {
       return res.status(404).json({ error: 'Order not found or access denied' });
     }
@@ -506,8 +508,8 @@ app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
     console.log('Updating order in table:', tableName);
     const updateResult = await db.query(`
       UPDATE ${tableName} 
-      SET completed_at = @param1
-      WHERE id = @param2
+      SET completed_at = ?
+      WHERE id = ?
     `, [new Date(), orderId]);
     console.log('Update result:', updateResult);
 
@@ -515,14 +517,14 @@ app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
     console.log('Fetching updated order');
     const orders = await db.query(`
       SELECT o.*, 
-             COALESCE(creator.first_name + ' ' + creator.last_name, creator.username) as creatorName,
+             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
              creator.username as creatorUsername,
-             COALESCE(assignee.first_name + ' ' + assignee.last_name, assignee.username) as receiverName,
+             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
              assignee.username as receiverUsername
       FROM ${tableName} o
       LEFT JOIN users creator ON o.sent_by = creator.id
       LEFT JOIN users assignee ON o.assigned_to = assignee.id
-      WHERE o.id = @param1
+      WHERE o.id = ?
     `, [orderId]);
     console.log('Fetched orders:', orders);
 
@@ -566,14 +568,14 @@ app.get('/api/orders/deleted', authenticateToken, async (req, res) => {
     const tableName = department.toLowerCase() === 'engineering' ? 'engineering_orders' : 'housekeeping_orders';
     let query = `
       SELECT o.*, 
-             COALESCE(creator.first_name + ' ' + creator.last_name, creator.username) as creatorName,
+             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
              creator.username as creatorUsername,
-             COALESCE(assignee.first_name + ' ' + assignee.last_name, assignee.username) as receiverName,
+             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
              assignee.username as receiverUsername
       FROM ${tableName} o
       LEFT JOIN users creator ON o.sent_by = creator.id
       LEFT JOIN users assignee ON o.assigned_to = assignee.id
-      WHERE o.hotel_code = @param1 AND o.deleted_at IS NOT NULL
+      WHERE o.hotel_code = ? AND o.deleted_at IS NOT NULL
     `;
 
     // Filter by user's hotel code and only show soft-deleted orders
@@ -611,21 +613,21 @@ app.post('/api/orders/:id/restore', authenticateToken, async (req, res) => {
     // First, find which table the order is in and verify it belongs to user's hotel and is deleted
     let tableName = null;
     let orderFound = false;
-    
+
     // Check engineering_orders first
-    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = @param1 AND hotel_code = @param2 AND deleted_at IS NOT NULL`, [id, user.hotel_code || user.hotelCode]);
+    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NOT NULL`, [id, user.hotel_code || user.hotelCode]);
     if (checkResult.length > 0) {
       tableName = 'engineering_orders';
       orderFound = true;
     } else {
       // Check housekeeping_orders
-      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = @param1 AND hotel_code = @param2 AND deleted_at IS NOT NULL`, [id, user.hotel_code || user.hotelCode]);
+      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NOT NULL`, [id, user.hotel_code || user.hotelCode]);
       if (checkResult.length > 0) {
         tableName = 'housekeeping_orders';
         orderFound = true;
       }
     }
-    
+
     if (!orderFound) {
       return res.status(404).json({ error: 'Deleted order not found or access denied' });
     }
@@ -634,7 +636,7 @@ app.post('/api/orders/:id/restore', authenticateToken, async (req, res) => {
     await db.query(`
       UPDATE ${tableName} 
       SET deleted_at = NULL
-      WHERE id = @param1
+      WHERE id = ?
     `, [id]);
 
     // Return success response
@@ -653,9 +655,9 @@ app.post('/api/orders/:id/restore', authenticateToken, async (req, res) => {
 app.get('/api/auth/verify', authenticateToken, (req, res) => {
   try {
     // User data is already attached by authenticateToken middleware
-    res.json({ 
-      success: true, 
-      user: req.user 
+    res.json({
+      success: true,
+      user: req.user
     });
   } catch (error) {
     console.error('Token verification error:', error);
@@ -702,9 +704,9 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
     const user = req.user;
     const { search, page = 1, limit = 25 } = req.query;
 
-    console.log('Admin users request:', { 
-      user: user.id, 
-      hotel_code: user.hotel_code || user.hotelCode, 
+    console.log('Admin users request:', {
+      user: user.id,
+      hotel_code: user.hotel_code || user.hotelCode,
       role: user.role,
       search,
       page,
@@ -730,15 +732,15 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
     const offset = (pageNum - 1) * pageSize;
 
     let baseQuery, countQuery, params;
-    
+
     // For admin users, show all users regardless of hotel code
     // For regular users, filter by their hotel code
     const isAdmin = user.role === 'admin';
-    
+
     if (search && search.trim()) {
       // Search users by name, username, or hotel code
       const searchTerm = `%${search.trim()}%`;
-      
+
       if (isAdmin) {
         baseQuery = `
           SELECT u.id, u.username, u.first_name, u.last_name, u.hotel_code, u.role,
@@ -746,55 +748,55 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
           FROM users u
           LEFT JOIN hotels h ON u.hotel_code = h.code
           WHERE (
-            u.username LIKE @param1 
-            OR u.first_name LIKE @param1 
-            OR u.last_name LIKE @param1 
-            OR h.name LIKE @param1
+            u.username LIKE ? 
+            OR u.first_name LIKE ? 
+            OR u.last_name LIKE ? 
+            OR h.name LIKE ?
           )
           ORDER BY u.id DESC
         `;
-        
+
         countQuery = `
           SELECT COUNT(*) as total
           FROM users u
           LEFT JOIN hotels h ON u.hotel_code = h.code
           WHERE (
-            u.username LIKE @param1 
-            OR u.first_name LIKE @param1 
-            OR u.last_name LIKE @param1 
-            OR h.name LIKE @param1
+            u.username LIKE ? 
+            OR u.first_name LIKE ? 
+            OR u.last_name LIKE ? 
+            OR h.name LIKE ?
           )
         `;
-        params = [searchTerm];
+        params = [searchTerm, searchTerm, searchTerm, searchTerm];
       } else {
         baseQuery = `
           SELECT u.id, u.username, u.first_name, u.last_name, u.hotel_code, u.role,
                  h.name as hotelName
           FROM users u
           LEFT JOIN hotels h ON u.hotel_code = h.code
-          WHERE u.hotel_code = @param1 
+          WHERE u.hotel_code = ? 
           AND (
-            u.username LIKE @param2 
-            OR u.first_name LIKE @param2 
-            OR u.last_name LIKE @param2 
-            OR h.name LIKE @param2
+            u.username LIKE ? 
+            OR u.first_name LIKE ? 
+            OR u.last_name LIKE ? 
+            OR h.name LIKE ?
           )
           ORDER BY u.id DESC
         `;
-        
+
         countQuery = `
           SELECT COUNT(*) as total
           FROM users u
           LEFT JOIN hotels h ON u.hotel_code = h.code
-          WHERE u.hotel_code = @param1 
+          WHERE u.hotel_code = ? 
           AND (
-            u.username LIKE @param2 
-            OR u.first_name LIKE @param2 
-            OR u.last_name LIKE @param2 
-            OR h.name LIKE @param2
+            u.username LIKE ? 
+            OR u.first_name LIKE ? 
+            OR u.last_name LIKE ? 
+            OR h.name LIKE ?
           )
         `;
-        params = [user.hotel_code || user.hotelCode, searchTerm];
+        params = [user.hotel_code || user.hotelCode, searchTerm, searchTerm, searchTerm, searchTerm];
       }
     } else {
       // Get users (all for admin, filtered by hotel for regular users)
@@ -806,7 +808,7 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
           LEFT JOIN hotels h ON u.hotel_code = h.code
           ORDER BY u.id DESC
         `;
-        
+
         countQuery = `
           SELECT COUNT(*) as total
           FROM users u
@@ -821,7 +823,7 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
           WHERE u.hotel_code = @param1
           ORDER BY u.id DESC
         `;
-        
+
         countQuery = `
           SELECT COUNT(*) as total
           FROM users u
@@ -836,13 +838,13 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
     console.log('Base params:', params);
     const users = await db.query(baseQuery, params);
 
-    console.log('Users result:', { 
+    console.log('Users result:', {
       usersCount: users.length,
       currentPage: pageNum,
       pageSize
     });
 
-    res.json({ 
+    res.json({
       users,
       searchTerm: search || null,
       totalCount: users.length,
@@ -900,8 +902,8 @@ app.post('/api/admin/hotels', authenticateToken, async (req, res) => {
       new Date()
     ]);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Hotel created successfully',
       hotel: {
         id: result[0].id,
@@ -971,8 +973,8 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
 
     const newUserId = result[0].id;
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'User created successfully',
       user: {
         id: newUserId,
@@ -1028,9 +1030,9 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
       DELETE FROM hotels WHERE id = @param1
     `, [id]);
 
-    res.json({ 
-      success: true, 
-      message: 'Hotel deleted successfully' 
+    res.json({
+      success: true,
+      message: 'Hotel deleted successfully'
     });
   } catch (error) {
     console.error('Delete hotel error:', error);
@@ -1073,9 +1075,9 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
       DELETE FROM users WHERE id = @param1
     `, [id]);
 
-    res.json({ 
-      success: true, 
-      message: 'User deleted successfully' 
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
     });
   } catch (error) {
     console.error('Delete user error:', error);
@@ -1095,12 +1097,12 @@ app.post('/api/seed', async (req, res) => {
       IF NOT EXISTS (SELECT * FROM hotels WHERE code = 'HOTEL001')
       INSERT INTO hotels (id, code, name) VALUES (NEWID(), 'HOTEL001', 'Grand Plaza Hotel')
     `);
-    
+
     await db.query(`
       IF NOT EXISTS (SELECT * FROM hotels WHERE code = 'HOTEL002')
       INSERT INTO hotels (id, code, name) VALUES (NEWID(), 'HOTEL002', 'Seaside Resort & Spa')
     `);
-    
+
     await db.query(`
       IF NOT EXISTS (SELECT * FROM hotels WHERE code = 'HOTEL003')
       INSERT INTO hotels (id, code, name) VALUES (NEWID(), 'HOTEL003', 'Downtown Business Center')
@@ -1133,8 +1135,8 @@ app.post('/api/seed', async (req, res) => {
     ]);
 
     // Return success response with test credentials
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Sample data created',
       credentials: {
         hotel1: {
@@ -1189,7 +1191,7 @@ app.get('/api/debug/data', async (req, res) => {
     const users = await db.query('SELECT COUNT(*) as userCount FROM users');
     const hotels = await db.query('SELECT COUNT(*) as hotelCount FROM hotels');
     const orders = await db.query('SELECT COUNT(*) as orderCount FROM engineering_orders');
-    
+
     res.json({
       users: users[0].userCount,
       hotels: hotels[0].hotelCount,
@@ -1205,18 +1207,18 @@ app.get('/api/debug/data', async (req, res) => {
 app.post('/api/debug/create-user', async (req, res) => {
   try {
     const { username, password, hotelCode, role } = req.body;
-    
+
     // Create a simple user
     const result = await db.query(`
       INSERT INTO users (username, passwordHash, hotel_code, role, first_name, last_name)
       OUTPUT INSERTED.id
       VALUES (@param1, @param2, @param3, @param4, @param5, @param6)
     `, [username, password, hotelCode, role || 'employee', username, '']);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       userId: result[0].id,
-      message: 'User created successfully' 
+      message: 'User created successfully'
     });
   } catch (error) {
     console.error('Debug create user error:', error);
@@ -1228,7 +1230,7 @@ async function startServer() {
   try {
     // Connect to database
     await db.connect();
-    
+
     // Start listening for HTTP requests
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
