@@ -1233,9 +1233,9 @@ async function startServer() {
 
     // Start listening for HTTP requests
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log('📋 To seed sample data, POST to /api/seed');
-      console.log(`🐛 Debug endpoint: http://localhost:${PORT}/api/debug/data`);
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`� Database Host: ${config.db.host}`);
+      console.log(`🐛 Debug endpoint enabled`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
