@@ -1,11 +1,11 @@
 module.exports = {
   // Database Configuration
   db: {
-    host: process.env.DB_SERVER || 'localhost',
-    user: process.env.DB_USER || 'root',
+    host: process.env.DB_SERVER || 'roomaid-962-room-aid-962.e.aivencloud.com',
+    user: process.env.DB_USER || 'avnadmin',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'roomaid',
-    port: parseInt(process.env.DB_PORT) || 3306,
+    database: process.env.DB_NAME || 'room',
+    port: parseInt(process.env.DB_PORT) || 24815,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
