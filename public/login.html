@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <!-- Meta tags for proper character encoding and responsive design -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f5f5f5">
+    
+    <!-- Page title and branding -->
+    <title>RoomAid - by Rubble Tech</title>
+    
+    <!-- Google Fonts for multilingual support -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Link to external CSS stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="RoomAidTaskBoard.png">
+    <link rel="shortcut icon" type="image/png" href="RoomAidTaskBoard.png">
+    <link rel="apple-touch-icon" href="RoomAidTaskBoard.png">
+</head>
+<body>
+    <!-- Dark mode toggle button -->
+    <button id="themeToggle" class="theme-toggle" title="Toggle dark mode">🌙</button>
+    
+    <!-- Main application container -->
+    <div id="app">
+        <!-- ============================================================================
+             LOGIN SCREEN SECTION
+             ============================================================================ -->
+        <div id="loginScreen" class="screen">
+            <!-- Login form container with styling -->
+            <div class="login-container">
+                <!-- Login header with branding and instructions -->
+                <div class="login-header">
+                    <!-- RoomAid branding with logo and text side by side -->
+                    <div class="brand-container">
+                        <img src="rubbletech-removebg-preview.png" alt="RoomAid Logo" class="roomaid-logo-small" 
+                             onerror="this.style.display='none'; console.error('Logo failed to load:', this.src);"
+                             onload="console.log('Logo loaded successfully:', this.src);">
+                        <div class="brand-text">
+                            <h1>RoomAid</h1>
+                            <p>by Rubble Tech</p>
+                        </div>
+                    </div>
+                    <p>Sign in to your account</p>
+                </div>
+                
+                <!-- Login form with username, password, and hotel code fields -->
+                <form id="loginForm" class="login-form">
+                    <!-- Username input field -->
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required>
+                    </div>
+                    
+                    <!-- Password input field with visibility toggle -->
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <div class="password-container">
+                            <input type="password" id="password" name="password" required>
+                            <!-- Password visibility toggle button -->
+                            <button type="button" id="togglePassword" class="password-toggle">
+                                🙈
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Hotel code input field for multi-hotel support -->
+                    <div class="form-group">
+                        <label for="hotelCode">Hotel Code</label>
+                        <input type="text" id="hotelCode" name="hotelCode" required>
+                    </div>
+                    
+                    <!-- Login submit button -->
+                    <button type="submit" class="btn btn-primary">Sign In</button>
+                </form>
+                
+                <!-- Error message display area (hidden by default) -->
+                <div id="loginError" class="error-message" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link to login-specific JavaScript file -->
+    <script src="login.js"></script>
+</body>
+</html>

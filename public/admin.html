@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f5f5f5">
+    <title>RoomAid - Admin Panel</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            background: var(--bg-primary);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+        
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .admin-header {
+            background: linear-gradient(135deg, var(--brand-primary) 0%, var(--bg-tertiary) 100%);
+            color: var(--text-accent);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 4px 6px var(--shadow-primary);
+        }
+        
+        .admin-nav {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .nav-btn {
+            padding: 12px 24px;
+            background: var(--brand-primary);
+            color: var(--text-accent);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px var(--shadow-primary);
+        }
+        
+        .nav-btn:hover {
+            background: var(--bg-tertiary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px var(--shadow-primary);
+        }
+        
+        .nav-btn.active {
+            background: var(--brand-danger);
+            box-shadow: 0 4px 8px var(--shadow-primary);
+        }
+        
+        .admin-section {
+            display: none;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 12px var(--shadow-primary);
+            border: 1px solid var(--border-primary);
+            transition: all 0.3s ease;
+        }
+        
+        .admin-section.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: all 0.2s;
+            background-color: var(--input-bg);
+            color: var(--text-primary);
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--input-focus);
+            box-shadow: 0 0 0 3px var(--input-focus-shadow);
+        }
+        
+        .btn-primary {
+            background: var(--brand-secondary);
+            color: var(--text-accent);
+            padding: 14px 28px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px var(--shadow-primary);
+        }
+        
+        .btn-primary:hover {
+            background: var(--bg-tertiary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px var(--shadow-primary);
+        }
+        
+        .btn-danger {
+            background: var(--brand-danger);
+            color: var(--text-accent);
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px var(--shadow-primary);
+        }
+        
+        .btn-danger:hover {
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px var(--shadow-primary);
+        }
+        
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .users-table th, .users-table td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 2px solid var(--border-primary);
+        }
+        
+        .users-table th {
+            background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--brand-primary) 100%);
+            color: var(--text-accent);
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .users-table tr:hover {
+            background-color: var(--bg-tertiary);
+            transform: scale(1.01);
+            transition: all 0.2s;
+        }
+        
+        .users-table td {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: none;
+        }
+        
+        .alert-success {
+            background-color: var(--brand-secondary);
+            color: var(--text-accent);
+            border: 1px solid var(--border-primary);
+        }
+        
+        .alert-error {
+            background-color: var(--brand-danger);
+            color: var(--text-accent);
+            border: 1px solid var(--border-primary);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 16px;
+            font-weight: 500;
+        }
+        
+        h2 {
+            color: var(--text-primary);
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            border-bottom: 3px solid var(--brand-primary);
+            padding-bottom: 10px;
+        }
+        
+        h3 {
+            color: var(--text-tertiary);
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Dark mode toggle button -->
+    <button id="themeToggle" class="theme-toggle" title="Toggle dark mode">🌙</button>
+    
+    <div class="admin-container">
+        <div class="admin-header">
+            <h1>🏨 RoomAid Admin Panel</h1>
+            <p>User Management & System Administration</p>
+        </div>
+        
+        <div class="admin-nav">
+            <button class="nav-btn active" onclick="showSection('users')">👥 Manage Users</button>
+            <button class="nav-btn" onclick="showSection('hotels')">🏨 Manage Hotels</button>
+            <button class="nav-btn" onclick="logout()">🚪 Logout</button>
+        </div>
+        
+        <!-- Alert Messages -->
+        <div id="alert" class="alert"></div>
+        
+        <!-- User Management Section -->
+        <div id="users-section" class="admin-section active">
+            <h2>👥 User Management</h2>
+            
+            <!-- Add User Form -->
+            <div style="background: var(--bg-tertiary); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; border: 1px solid var(--border-primary);">
+                <h3>Add New User</h3>
+                <form id="add-user-form">
+                    <div class="form-group">
+                        <label for="firstName">First Name:</label>
+                        <input type="text" id="firstName" name="firstName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="lastName">Last Name:</label>
+                        <input type="text" id="lastName" name="lastName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="username">Username:</label>
+                        <input type="text" id="username" name="username" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="hotelCode">Hotel Code:</label>
+                        <select id="hotelCode" name="hotelCode" required>
+                            <option value="">Select Hotel</option>
+                            <option value="HOTEL001">HOTEL001 - Grand Plaza Hotel</option>
+                            <option value="HOTEL002">HOTEL002 - Seaside Resort & Spa</option>
+                            <option value="HOTEL003">HOTEL003 - Downtown Business Center</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="role">Role:</label>
+                        <select id="role" name="role" required>
+                            <option value="employee">Employee</option>
+                            <option value="admin">Admin</option>
+                            <option value="manager">Manager</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary">Add User</button>
+                </form>
+            </div>
+            
+            <!-- Users List -->
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                    <h3 style="margin: 0;">Current Users</h3>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div style="position: relative;">
+                            <input type="text" id="user-search" placeholder="Search users..." 
+                                   style="padding: 8px 12px; padding-right: 35px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 14px; width: 200px;"
+                                   onkeyup="if(event.key==='Enter') searchUsers()">
+                            <button onclick="searchUsers()" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-secondary);">🔍</button>
+                        </div>
+                        <button onclick="refreshUsers()" style="padding: 8px 12px; background: var(--brand-secondary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
+                            🔄 Refresh
+                        </button>
+                    </div>
+                </div>
+                <div id="users-loading" class="loading">Loading users...</div>
+                <table id="users-table" class="users-table" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Hotel</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-tbody">
+                    </tbody>
+                </table>
+                
+                <!-- Pagination Controls -->
+                <div id="users-pagination" style="display: none; margin-top: 20px; display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <button id="prev-page" onclick="changePage(-1)" style="padding: 8px 12px; background: var(--brand-secondary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" disabled>← Previous</button>
+                    <span id="page-info" style="color: var(--text-primary); font-weight: 500; min-width: 120px; text-align: center;"></span>
+                    <button id="next-page" onclick="changePage(1)" style="padding: 8px 12px; background: var(--brand-secondary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;" disabled>Next →</button>
+                    <select id="page-size" onchange="changePageSize()" style="padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 14px;">
+                        <option value="10">10 per page</option>
+                        <option value="25" selected>25 per page</option>
+                        <option value="50">50 per page</option>
+                        <option value="100">100 per page</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hotels Management Section -->
+        <div id="hotels-section" class="admin-section">
+            <h2>🏨 Hotel Management</h2>
+            
+            <!-- Add Hotel Form -->
+            <div style="background: var(--bg-tertiary); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; border: 1px solid var(--border-primary);">
+                <h3>Add New Hotel</h3>
+                <form id="add-hotel-form">
+                    <div class="form-group">
+                        <label for="hotelName">Hotel Name:</label>
+                        <input type="text" id="hotelName" name="hotelName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="hotelCode">Hotel Code:</label>
+                        <input type="text" id="hotelCode" name="hotelCode" required placeholder="e.g., HOTEL001">
+                    </div>
+                    
+                    <button type="submit" class="btn-primary">Add Hotel</button>
+                </form>
+            </div>
+            
+            <!-- Hotels List -->
+            <div>
+                <h3>Current Hotels</h3>
+                <div id="hotels-loading" class="loading">Loading hotels...</div>
+                <table id="hotels-table" class="users-table" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left;">Hotel Name</th>
+                            <th style="text-align: center;">Hotel Code</th>
+                            <th style="text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="hotels-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script src="admin.js"></script>
+</body>
+</html>

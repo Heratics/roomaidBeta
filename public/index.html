@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <!-- Meta tags for proper character encoding and responsive design -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f5f5f5">
+    
+    <!-- Page title and branding -->
+    <title>RoomAid</title>
+    
+    <!-- Google Fonts for multilingual support -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Link to external CSS stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="RoomAidTaskBoard.png">
+    <link rel="shortcut icon" type="image/png" href="RoomAidTaskBoard.png">
+    <link rel="apple-touch-icon" href="RoomAidTaskBoard.png">
+</head>
+<body>
+    <!-- Dark mode toggle button -->
+    <button id="themeToggle" class="theme-toggle" title="Toggle dark mode">🌙</button>
+    
+    <!-- Floating Add Order button -->
+    <button id="addOrderBtn" class="floating-add-btn" title="Add New Order">+</button>
+    
+    <!-- Main application container -->
+    <div id="app">
+        <!-- ============================================================================
+             DASHBOARD SCREEN SECTION
+             ============================================================================ -->
+        <div id="dashboardScreen" class="screen">
+            <!-- Dashboard header with hotel name and user info -->
+            <header class="dashboard-header">
+                <!-- Left side: Hotel branding -->
+                <div class="header-left">
+                    <!-- Small RoomAid logo for dashboard -->
+                    <div class="logo-container small">
+                        <img src="rubbletech-removebg-preview.png" alt="RoomAid Logo" class="roomaid-logo-small">
+                    </div>
+                    <div class="header-text">
+                        <h1 id="hotelName">Dashboard</h1>
+                        <p>by Rubble Tech</p>
+                    </div>
+                </div>
+                <!-- Right side: User info, language indicator, and logout -->
+                <div class="header-right">
+                    <div class="language-indicator">
+                        <span id="currentLanguage">EN</span>
+                        <button id="toggleLanguageBtn" class="btn btn-secondary btn-small" title="Switch keyboard language">🌐</button>
+                    </div>
+                    <span id="currentUser"></span>
+                    <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+                </div>
+            </header>
+
+            <!-- Main dashboard content area -->
+            <main class="dashboard-main">
+                <!-- Dashboard controls: tabs, filters, and add button -->
+                <div class="dashboard-controls">
+                    <!-- Department tab buttons for switching between Engineering and Housekeeping -->
+                    <div class="tab-buttons">
+                        <button class="tab-btn active" data-department="Engineering">🔧 Engineering</button>
+                        <button class="tab-btn" data-department="Housekeeping">🧹 Housekeeping</button>
+                    </div>
+                    
+                    <!-- Date filter controls -->
+                    <div class="filter-controls">
+                        <div class="date-filter">
+                            <label for="dateFilter">📅 Filter by Date:</label>
+                            <input type="date" id="dateFilter" name="dateFilter">
+                            <button id="clearDateFilter" class="btn btn-secondary">Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orders list container where order cards will be dynamically loaded -->
+                <div id="ordersList" class="orders-list">
+                    <!-- Orders will be loaded here by JavaScript -->
+                </div>
+            </main>
+        </div>
+
+        <!-- ============================================================================
+             ADD ORDER MODAL SECTION
+             ============================================================================ -->
+        <div id="addOrderModal" class="modal" style="display: none;">
+            <!-- Modal content container -->
+            <div class="modal-content">
+                <!-- Modal header with title and close button -->
+                <div class="modal-header">
+                    <h2>Add New Order</h2>
+                    <button id="closeModalBtn" class="close-btn">&times;</button>
+                </div>
+                
+                <!-- Add order form -->
+                <form id="addOrderForm" class="modal-form">
+                    <!-- Room number input field -->
+                    <div class="form-group">
+                        <label for="orderRoomNumber">Room Number *</label>
+                        <input type="text" id="orderRoomNumber" name="roomNumber" required>
+                    </div>
+                    
+                    <!-- Department selection dropdown -->
+                    <div class="form-group">
+                        <label for="orderDepartment">Department *</label>
+                        <select id="orderDepartment" name="department" required>
+                            <option value="Engineering">Engineering</option>
+                            <option value="Housekeeping">Housekeeping</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Notes textarea for additional order details -->
+                    <div class="form-group">
+                        <label for="orderNotes">Notes</label>
+                        <textarea id="orderNotes" name="notes" rows="3" placeholder="Type your notes here..."></textarea>
+                    </div>
+                    
+                    <!-- Modal action buttons -->
+                    <div class="modal-actions">
+                        <button type="button" id="cancelOrderBtn" class="btn btn-secondary">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Order</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================================
+         DELETE CONFIRMATION MODAL SECTION
+         ============================================================================ -->
+    <div id="deleteConfirmModal" class="modal" style="display: none;">
+        <!-- Delete confirmation modal content -->
+        <div class="modal-content delete-confirm-modal">
+            <!-- Modal header with warning icon and close button -->
+            <div class="modal-header">
+                <h2>🗑️ Delete Order</h2>
+                <button id="closeDeleteModalBtn" class="close-btn">&times;</button>
+            </div>
+            
+            <!-- Warning message content -->
+            <div class="delete-confirm-content">
+                <div class="warning-icon">⚠️</div>
+                <h3>Are you sure?</h3>
+                <p>This action cannot be undone. The order will be permanently deleted.</p>
+            </div>
+            
+            <!-- Confirmation action buttons -->
+            <div class="modal-actions">
+                <button id="cancelDeleteBtn" class="btn btn-secondary">Cancel</button>
+                <button id="confirmDeleteBtn" class="btn btn-danger">Delete Order</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Link to main JavaScript application file -->
+    <script src="app.js"></script>
+</body>
+</html> 

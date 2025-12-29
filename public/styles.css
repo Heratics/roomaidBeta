@@ -1,0 +1,1206 @@
+/**
+ * RoomAid CSS Stylesheet
+ * Complete styling for the hotel task management system
+ * Includes responsive design, modern UI components, accessibility features, and dark mode support
+ */
+
+/* ============================================================================
+   CSS CUSTOM PROPERTIES (VARIABLES) FOR THEMING
+   ============================================================================ */
+
+:root {
+    /* Light theme colors */
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f3f4f6;
+    --bg-accent: #fef3c7;
+    
+    --text-primary: #333333;
+    --text-secondary: #6b7280;
+    --text-tertiary: #374151;
+    --text-accent: #111827;
+    
+    --border-primary: #e5e7eb;
+    --border-secondary: #d1d5db;
+    
+    --shadow-primary: rgba(0, 0, 0, 0.1);
+    --shadow-secondary: rgba(0, 0, 0, 0.05);
+    
+    --brand-primary: #2563eb;
+    --brand-secondary: #10b981;
+    --brand-danger: #dc2626;
+    --brand-warning: #f59e0b;
+    
+    --input-bg: #ffffff;
+    --input-border: #d1d5db;
+    --input-focus: #2563eb;
+    --input-focus-shadow: rgba(37, 99, 235, 0.1);
+    
+    --modal-overlay: rgba(0, 0, 0, 0.5);
+    --error-bg: #fef2f2;
+    --error-border: #fecaca;
+    --error-text: #dc2626;
+}
+
+/* Dark theme colors */
+[data-theme="dark"] {
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --bg-accent: #1e3a8a;
+    
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-tertiary: #cbd5e1;
+    --text-accent: #f8fafc;
+    
+    --border-primary: #334155;
+    --border-secondary: #475569;
+    
+    --shadow-primary: rgba(0, 0, 0, 0.3);
+    --shadow-secondary: rgba(0, 0, 0, 0.2);
+    
+    --brand-primary: #3b82f6;
+    --brand-secondary: #22c55e;
+    --brand-danger: #ef4444;
+    --brand-warning: #f59e0b;
+    
+    --input-bg: #334155;
+    --input-border: #475569;
+    --input-focus: #3b82f6;
+    --input-focus-shadow: rgba(59, 130, 246, 0.2);
+    
+    --modal-overlay: rgba(0, 0, 0, 0.7);
+    --error-bg: #450a0a;
+    --error-border: #7f1d1d;
+    --error-text: #fca5a5;
+}
+
+/* ============================================================================
+   DARK MODE TOGGLE BUTTON
+   ============================================================================ */
+
+.theme-toggle {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1001;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-primary);
+    color: var(--text-primary);
+    padding: 10px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px var(--shadow-primary);
+}
+
+.theme-toggle:hover {
+    background: var(--bg-tertiary);
+    transform: scale(1.1);
+}
+
+.theme-toggle:active {
+    transform: scale(0.95);
+}
+
+/* Floating Add Order button */
+.floating-add-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1001;
+    background: rgba(37, 99, 235, 0.2);
+    border: none;
+    color: var(--brand-primary);
+    padding: 18px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 2.5rem;
+    font-weight: 300;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px var(--shadow-primary);
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    text-decoration: none;
+    user-select: none;
+}
+
+.floating-add-btn:hover {
+    background: rgba(29, 78, 216, 0.4);
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px var(--shadow-primary);
+}
+
+.floating-add-btn:active {
+    transform: scale(0.95);
+}
+
+/* ============================================================================
+   RESET AND BASE STYLES
+   ============================================================================ */
+
+/* CSS reset to ensure consistent styling across browsers */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Base body styling with modern font stack and background */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Arabic', 'Noto Sans CJK', sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ============================================================================
+   SCREEN CONTAINERS
+   ============================================================================ */
+
+/* Full-screen container styling for login and dashboard screens */
+.screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ============================================================================
+   LOGIN SCREEN STYLES
+   ============================================================================ */
+
+/* Login form container with card-like appearance */
+.login-container {
+    background: var(--bg-secondary);
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px var(--shadow-primary);
+    width: 100%;
+    max-width: 400px;
+    margin: 1rem;
+    border: 1px solid var(--border-primary);
+    transition: all 0.3s ease;
+}
+
+/* Logo styling */
+.logo-container {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.roomaid-logo {
+    max-width: 200px;
+    height: auto;
+    margin-bottom: 1rem;
+}
+
+.roomaid-logo-small {
+    max-width: 90px;
+    height: auto;
+    margin-right: 0;
+}
+
+/* Brand container for logo and text side by side */
+.brand-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+    gap: 1.5rem;
+}
+
+.brand-text {
+    text-align: center;
+}
+
+.brand-text h1 {
+    margin: 0;
+    font-size: 2.2rem;
+    color: var(--brand-primary);
+    font-weight: 600;
+}
+
+.brand-text p {
+    margin: 0;
+    color: var(--brand-secondary);
+    font-weight: 500;
+    font-size: 1.1rem;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+}
+
+.header-text h1 {
+    margin: 0;
+}
+
+.header-text p {
+    margin: 0;
+}
+
+/* Login header styling with branding */
+.login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+/* Main title styling with brand color */
+.login-header h1 {
+    font-size: 1.8rem;
+    margin-bottom: 0.5rem;
+    color: var(--brand-primary);
+}
+
+/* Subtitle text styling */
+.login-header p {
+    color: var(--text-secondary);
+}
+
+/* Company branding text with accent color */
+.login-header p:first-of-type {
+    color: var(--brand-secondary);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+/* Login form layout with flexbox */
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Form group styling for consistent input layouts */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Form label styling */
+.form-group label {
+    font-weight: 500;
+    color: var(--text-tertiary);
+}
+
+/* Input field styling with focus states */
+.form-group input,
+.form-group select,
+.form-group textarea {
+    padding: 0.75rem;
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    font-size: 1rem;
+    transition: all 0.2s;
+    background-color: var(--input-bg);
+    color: var(--text-primary);
+}
+
+/* Arabic and RTL language support */
+[dir="rtl"] .form-group input,
+[dir="rtl"] .form-group select,
+[dir="rtl"] .form-group textarea {
+    text-align: right;
+    font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+}
+
+/* Language-specific textarea styling */
+#orderNotes[data-language="ar"] {
+    direction: rtl;
+    text-align: right;
+    font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    unicode-bidi: bidi-override;
+}
+
+#orderNotes[data-language="ar"]::placeholder {
+    direction: rtl;
+    text-align: right;
+    unicode-bidi: bidi-override;
+}
+
+/* Arabic text rendering improvements */
+[data-language="ar"] {
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+}
+
+/* RTL text rendering for better Arabic display */
+[dir="rtl"] {
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1;
+}
+
+/* Arabic text in order cards */
+.order-notes.arabic-text {
+    direction: rtl;
+    text-align: right;
+    font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    unicode-bidi: bidi-override;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+}
+
+/* Ensure proper Arabic text display */
+.order-notes:has([data-notes*="ا"]),
+.order-notes:has([data-notes*="ب"]),
+.order-notes:has([data-notes*="ت"]),
+.order-notes:has([data-notes*="ث"]),
+.order-notes:has([data-notes*="ج"]),
+.order-notes:has([data-notes*="ح"]),
+.order-notes:has([data-notes*="خ"]),
+.order-notes:has([data-notes*="د"]),
+.order-notes:has([data-notes*="ذ"]),
+.order-notes:has([data-notes*="ر"]),
+.order-notes:has([data-notes*="ز"]),
+.order-notes:has([data-notes*="س"]),
+.order-notes:has([data-notes*="ش"]),
+.order-notes:has([data-notes*="ص"]),
+.order-notes:has([data-notes*="ض"]),
+.order-notes:has([data-notes*="ط"]),
+.order-notes:has([data-notes*="ظ"]),
+.order-notes:has([data-notes*="ع"]),
+.order-notes:has([data-notes*="غ"]),
+.order-notes:has([data-notes*="ف"]),
+.order-notes:has([data-notes*="ق"]),
+.order-notes:has([data-notes*="ك"]),
+.order-notes:has([data-notes*="ل"]),
+.order-notes:has([data-notes*="م"]),
+.order-notes:has([data-notes*="ن"]),
+.order-notes:has([data-notes*="ه"]),
+.order-notes:has([data-notes*="و"]),
+.order-notes:has([data-notes*="ي"]) {
+    direction: rtl;
+    text-align: right;
+    font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    unicode-bidi: bidi-override;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+}
+
+/* Focus state styling for better accessibility */
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 3px var(--input-focus-shadow);
+}
+
+/* ============================================================================
+   PASSWORD TOGGLE STYLES
+   ============================================================================ */
+
+/* Container for password input with toggle button */
+.password-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+/* Password visibility toggle button styling */
+.password-toggle {
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    z-index: 10;
+    pointer-events: auto;
+    color: var(--text-secondary);
+}
+
+/* Hover effect for password toggle button */
+.password-toggle:hover {
+    background-color: var(--bg-tertiary);
+}
+
+/* Adjust password input padding to accommodate toggle button */
+.password-container input {
+    padding-right: 3rem;
+    position: relative;
+}
+
+/* ============================================================================
+   BUTTON STYLES
+   ============================================================================ */
+
+/* Base button styling with consistent appearance */
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+/* Primary button styling (blue) */
+.btn-primary {
+    background-color: var(--brand-primary);
+    color: white;
+}
+
+/* Primary button hover effect */
+.btn-primary:hover {
+    background-color: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px var(--shadow-primary);
+}
+
+/* Success button styling (green) */
+.btn-success {
+    background-color: var(--brand-secondary);
+    color: white;
+}
+
+/* Success button hover effect */
+.btn-success:hover {
+    background-color: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px var(--shadow-primary);
+}
+
+/* Secondary button styling (gray) */
+.btn-secondary {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-secondary);
+}
+
+/* Secondary button hover effect */
+.btn-secondary:hover {
+    background-color: var(--bg-accent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px var(--shadow-primary);
+}
+
+/* Danger button styling (red) */
+.btn-danger {
+    background-color: var(--brand-danger);
+    color: white;
+}
+
+/* Danger button hover effect */
+.btn-danger:hover {
+    background-color: #b91c1c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px var(--shadow-primary);
+}
+
+/* Delete button with smaller padding for compact appearance */
+.delete-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    min-width: auto;
+}
+
+/* Disabled button styling */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* ============================================================================
+   ERROR MESSAGE STYLES
+   ============================================================================ */
+
+/* Error message container styling */
+.error-message {
+    background-color: var(--error-bg);
+    color: var(--error-text);
+    padding: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--error-border);
+    margin-top: 1rem;
+    text-align: center;
+}
+
+/* ============================================================================
+   DASHBOARD STYLES
+   ============================================================================ */
+
+/* Dashboard header with hotel branding and user info */
+.dashboard-header {
+    background: var(--bg-secondary);
+    padding: 1rem 2rem;
+    border-bottom: 1px solid var(--border-primary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 3px var(--shadow-primary);
+    transition: all 0.3s ease;
+}
+
+/* Hotel name styling in header */
+.header-left h1 {
+    color: var(--brand-primary);
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+/* Company branding in header */
+.header-left p {
+    color: var(--brand-secondary);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Right side of header with user info and logout */
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Current user display styling */
+#currentUser {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Language indicator styling */
+.language-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-right: 1rem;
+}
+
+#currentLanguage {
+    font-weight: 600;
+    color: var(--brand-primary);
+    font-size: 0.875rem;
+    min-width: 20px;
+    text-align: center;
+}
+
+.btn-small {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+}
+
+/* Language selector styling */
+#orderLanguage {
+    font-family: inherit;
+}
+
+#orderLanguage option[value="ar"] {
+    font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+    direction: rtl;
+}
+
+/* RTL support for Arabic text */
+[dir="rtl"] {
+    direction: rtl;
+    text-align: right;
+}
+
+[dir="rtl"] .header-left {
+    flex-direction: row-reverse;
+}
+
+[dir="rtl"] .header-right {
+    flex-direction: row-reverse;
+}
+
+[dir="rtl"] .dashboard-controls {
+    flex-direction: row-reverse;
+}
+
+[dir="rtl"] .order-header {
+    flex-direction: row-reverse;
+}
+
+[dir="rtl"] .order-actions {
+    flex-direction: row-reverse;
+}
+
+/* Main dashboard content area */
+.dashboard-main {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Dashboard controls layout (tabs, filters, add button) */
+.dashboard-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+/* Filter controls container */
+.filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Date filter styling */
+.date-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Date filter label styling */
+.date-filter label {
+    font-weight: 500;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+/* Date input field styling */
+.date-filter input[type="date"] {
+    padding: 0.5rem;
+    border: 1px solid var(--input-border);
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    background: var(--input-bg);
+    color: var(--text-primary);
+}
+
+/* Date input focus state */
+.date-filter input[type="date"]:focus {
+    outline: none;
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 3px var(--input-focus-shadow);
+}
+
+/* ============================================================================
+   TAB BUTTON STYLES
+   ============================================================================ */
+
+/* Tab button container with background */
+.tab-buttons {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--bg-secondary);
+    padding: 0.25rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px var(--shadow-primary);
+    border: 1px solid var(--border-primary);
+    transition: all 0.3s ease;
+}
+
+/* Individual tab button styling */
+.tab-btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+    color: var(--text-secondary);
+}
+
+/* Active tab button styling */
+.tab-btn.active {
+    background-color: var(--brand-primary);
+    color: white;
+}
+
+/* Inactive tab button hover effect */
+.tab-btn:not(.active):hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* ============================================================================
+   ORDERS LIST STYLES
+   ============================================================================ */
+
+/* Orders list container with flexbox layout */
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Individual order card styling */
+.order-card {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px var(--shadow-primary);
+    border-left: 4px solid var(--brand-primary);
+    transition: all 0.3s ease;
+    border: 1px solid var(--border-primary);
+}
+
+/* Order card hover effect */
+.order-card:hover {
+    box-shadow: 0 4px 6px var(--shadow-primary);
+    transform: translateY(-2px);
+}
+
+/* Completed order card styling with green accent */
+.order-card.completed {
+    border-left-color: var(--brand-secondary);
+    opacity: 0.8;
+}
+
+/* Pending order card styling (default) */
+.order-card.pending {
+    border-left-color: var(--brand-primary);
+    background-color: var(--bg-secondary);
+}
+
+/* Received order card styling with yellow background */
+.order-card.received {
+    border-left-color: var(--brand-warning);
+    background-color: var(--bg-accent);
+}
+
+/* Received status indicator styling */
+.order-received {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: var(--bg-accent);
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    color: #92400e;
+}
+
+/* Order header with title and action buttons */
+.order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+/* Order action buttons container */
+.order-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Order title styling */
+.order-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-accent);
+}
+
+/* Order metadata (date, creator) styling */
+.order-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+/* Order notes styling */
+.order-notes {
+    color: var(--text-tertiary);
+    margin-bottom: 1rem;
+}
+
+/* Order completion status styling */
+.order-completion {
+    font-size: 0.875rem;
+    color: var(--brand-secondary);
+    font-weight: 500;
+}
+
+/* Empty state styling when no orders exist */
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+/* Empty state heading */
+.empty-state h3 {
+    margin-bottom: 0.5rem;
+    color: var(--text-tertiary);
+}
+
+/* ============================================================================
+   MODAL STYLES
+   ============================================================================ */
+
+/* Modal overlay with backdrop */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--modal-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+/* Modal content container */
+.modal-content {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 2rem;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    border: 1px solid var(--border-primary);
+    box-shadow: 0 10px 25px var(--shadow-primary);
+    transition: all 0.3s ease;
+}
+
+/* Modal header with title and close button */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+/* Modal header title */
+.modal-header h2 {
+    color: var(--text-accent);
+}
+
+/* Close button styling */
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+/* Close button hover effect */
+.close-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+/* Modal form styling */
+.modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Modal action buttons container */
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+/* Modal action buttons with equal width */
+.modal-actions .btn {
+    flex: 1;
+}
+
+/* ============================================================================
+   RESPONSIVE DESIGN
+   ============================================================================ */
+
+/* Mobile and tablet responsive styles */
+@media (max-width: 768px) {
+    /* Stack dashboard header elements vertically on mobile */
+    .dashboard-header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    /* Stack dashboard controls vertically on mobile */
+    .dashboard-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    /* Center tab buttons on mobile */
+    .tab-buttons {
+        justify-content: center;
+    }
+    
+    /* Adjust modal content for mobile */
+    .modal-content {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+    
+    /* Stack modal action buttons vertically on mobile */
+    .modal-actions {
+        flex-direction: column;
+    }
+    
+    /* Adjust theme toggle position on mobile */
+    .theme-toggle {
+        bottom: 10px;
+        left: 10px;
+        padding: 8px;
+        font-size: 1rem;
+    }
+    
+    /* Adjust floating add button position on mobile */
+    .floating-add-btn {
+        bottom: 10px;
+        right: 10px;
+        width: 50px;
+        height: 50px;
+        padding: 15px;
+        font-size: 1.5rem;
+    }
+}
+
+/* ============================================================================
+   LOADING STATES
+   ============================================================================ */
+
+/* Loading state styling for disabled elements */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Spinner animation for loading indicators */
+.spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--bg-tertiary);
+    border-top: 2px solid var(--brand-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Spinner rotation animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ============================================================================
+   DELETE CONFIRMATION MODAL STYLES
+   ============================================================================ */
+
+/* Delete confirmation modal with centered content */
+.delete-confirm-modal {
+    max-width: 400px;
+    text-align: center;
+}
+
+/* Delete confirmation content area */
+.delete-confirm-content {
+    padding: 1rem 0;
+}
+
+/* Warning icon styling with animation */
+.warning-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    animation: pulse 2s infinite;
+}
+
+/* Pulse animation for warning icon */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Delete confirmation heading */
+.delete-confirm-content h3 {
+    color: var(--brand-danger);
+    margin-bottom: 0.5rem;
+    font-size: 1.25rem;
+}
+
+/* Delete confirmation message */
+.delete-confirm-content p {
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: 0;
+}
+
+/* Delete confirmation modal action buttons */
+.delete-confirm-modal .modal-actions {
+    justify-content: center;
+    gap: 1rem;
+}
+
+/* Delete confirmation modal button sizing */
+.delete-confirm-modal .modal-actions .btn {
+    min-width: 120px;
+}
+
+/* ============================================================================
+   SCROLLBAR STYLING
+   ============================================================================ */
+
+/* Light mode scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-secondary);
+}
+
+/* ============================================================================
+   DARK MODE TRANSITIONS
+   ============================================================================ */
+
+/* Smooth transitions for theme switching */
+* {
+    transition: background-color 0.3s ease, 
+                color 0.3s ease, 
+                border-color 0.3s ease, 
+                box-shadow 0.3s ease;
+}
+
+/* Enhanced hover effects for dark mode */
+[data-theme="dark"] .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px var(--shadow-primary);
+}
+
+[data-theme="dark"] .order-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px var(--shadow-primary);
+}
+
+/* Dark mode specific enhancements */
+[data-theme="dark"] .modal-content {
+    box-shadow: 0 20px 40px var(--shadow-primary);
+}
+
+[data-theme="dark"] .dashboard-header {
+    box-shadow: 0 2px 8px var(--shadow-primary);
+}
+
+[data-theme="dark"] .floating-add-btn:hover {
+    box-shadow: 0 8px 20px var(--shadow-primary);
+}
+
+/* Dark mode scrollbar styling */
+[data-theme="dark"] ::-webkit-scrollbar {
+    width: 8px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+    background: var(--border-secondary);
+}
+
+/* Enhanced focus states for dark mode */
+[data-theme="dark"] .form-group input:focus,
+[data-theme="dark"] .form-group select:focus,
+[data-theme="dark"] .form-group textarea:focus {
+    box-shadow: 0 0 0 3px var(--input-focus-shadow);
+}
+
+/* Dark mode selection styling */
+[data-theme="dark"] ::selection {
+    background-color: var(--brand-primary);
+    color: white;
+}
+
+/* Dark mode placeholder text */
+[data-theme="dark"] ::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+/* ============================================================================
+   ACCESSIBILITY ENHANCEMENTS
+   ============================================================================ */
+
+/* Focus indicators for better accessibility */
+.btn:focus,
+input:focus,
+select:focus,
+textarea:focus,
+.tab-btn:focus {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    :root {
+        --border-primary: #000000;
+        --border-secondary: #000000;
+        --text-primary: #000000;
+        --text-secondary: #000000;
+    }
+    
+    [data-theme="dark"] {
+        --border-primary: #ffffff;
+        --border-secondary: #ffffff;
+        --text-primary: #ffffff;
+        --text-secondary: #ffffff;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+} 
