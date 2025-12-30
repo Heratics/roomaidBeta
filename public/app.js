@@ -117,7 +117,7 @@ function setupEventListeners() {
 // Logout handler
 async function handleLogout() {
     try {
-        await fetch('http://localhost:3000/api/auth/logout', {
+        await fetch('/api/auth/logout', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${currentToken}`
@@ -172,7 +172,7 @@ async function loadOrders() {
         console.log('Loading orders for department:', currentDepartment, 'date filter:', currentDateFilter);
         console.log('Current token:', currentToken ? 'Present' : 'Missing');
         
-        let url = `http://localhost:3000/api/orders?department=${currentDepartment}`;
+        let url = `/api/orders?department=${currentDepartment}`;
         if (currentDateFilter) {
             url += `&date=${currentDateFilter}`;
         }
@@ -346,7 +346,7 @@ function createOrderCard(order) {
 // Receive order
 async function receiveOrder(orderId) {
     try {
-        const response = await fetch(`http://localhost:3000/api/orders/${orderId}/receive`, {
+        const response = await fetch(`/api/orders/${orderId}/receive`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${currentToken}`
@@ -367,7 +367,7 @@ async function receiveOrder(orderId) {
 // Complete order
 async function completeOrder(orderId) {
     try {
-        const response = await fetch(`http://localhost:3000/api/orders/${orderId}/complete`, {
+        const response = await fetch(`/api/orders/${orderId}/complete`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${currentToken}`
@@ -407,7 +407,7 @@ async function confirmDeleteOrder() {
     }
     
     try {
-        const response = await fetch(`http://localhost:3000/api/orders/${orderToDelete}`, {
+        const response = await fetch(`/api/orders/${orderToDelete}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${currentToken}`
@@ -535,7 +535,7 @@ async function handleAddOrder(e) {
     }
     
     try {
-        const response = await fetch('http://localhost:3000/api/orders', {
+        const response = await fetch('/api/orders', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
