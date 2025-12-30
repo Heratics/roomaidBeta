@@ -1234,7 +1234,8 @@ async function startServer() {
     // Start listening for HTTP requests
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`� Database Host: ${config.db.host}`);
+      console.log(`🌍 Local: http://localhost:${PORT}`);
+      console.log(`📦 Database Host: ${config.db.host}`);
       console.log(`🐛 Debug endpoint enabled`);
     });
   } catch (error) {
