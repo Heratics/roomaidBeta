@@ -3,6 +3,8 @@ let currentUser = null;
 let currentToken = null;
 let currentDepartment = 'Engineering';
 let currentDateFilter = null;
+let autoRefreshInterval = null;
+const AUTO_REFRESH_INTERVAL = 10000; // Refresh every 10 seconds
 
 // DOM elements
 const dashboardScreen = document.getElementById('dashboardScreen');
@@ -116,6 +118,9 @@ function setupEventListeners() {
 
 // Logout handler
 async function handleLogout() {
+    // Stop auto-refresh
+    stopAutoRefresh();
+    
     try {
         await fetch('/api/auth/logout', {
             method: 'POST',
@@ -162,6 +167,9 @@ function showDashboard() {
     // Load orders
     console.log('Loading orders...');
     loadOrders();
+    
+    // Start auto-refresh
+    startAutoRefresh();
 }
 
 
@@ -198,6 +206,33 @@ async function loadOrders() {
     } catch (error) {
         console.error('Error loading orders:', error);
         displayOrders([]);
+    }
+}
+
+// Start auto-refresh for orders
+function startAutoRefresh() {
+    // Clear any existing interval
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+    }
+    
+    // Set up auto-refresh interval
+    autoRefreshInterval = setInterval(() => {
+        // Only refresh if user is logged in and on dashboard
+        if (currentToken && dashboardScreen && dashboardScreen.style.display !== 'none') {
+            loadOrders();
+        }
+    }, AUTO_REFRESH_INTERVAL);
+    
+    console.log('Auto-refresh started (every', AUTO_REFRESH_INTERVAL / 1000, 'seconds)');
+}
+
+// Stop auto-refresh
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        console.log('Auto-refresh stopped');
     }
 }
 
@@ -354,7 +389,10 @@ async function receiveOrder(orderId) {
         });
         
         if (response.ok) {
-            loadOrders(); // Reload orders to show updated status
+            // Small delay to ensure server has processed the change
+            setTimeout(() => {
+                loadOrders(); // Reload orders to show updated status
+            }, 500);
         } else {
             const errorData = await response.json();
             console.error('Failed to receive order:', errorData);
@@ -375,8 +413,10 @@ async function completeOrder(orderId) {
         });
         
         if (response.ok) {
-            // Reload orders
-            loadOrders();
+            // Small delay to ensure server has processed the change
+            setTimeout(() => {
+                loadOrders(); // Reload orders to show updated status
+            }, 500);
         } else {
             console.error('Failed to complete order');
         }
@@ -415,9 +455,11 @@ async function confirmDeleteOrder() {
         });
         
         if (response.ok) {
-            // Reload orders
-            loadOrders();
             hideDeleteConfirmModal();
+            // Small delay to ensure server has processed the deletion
+            setTimeout(() => {
+                loadOrders(); // Reload orders to show updated list
+            }, 500);
         } else {
             console.error('Failed to delete order');
         }
@@ -550,7 +592,10 @@ async function handleAddOrder(e) {
         
         if (response.ok) {
             hideAddOrderModal();
-            loadOrders(); // This will refresh the list and show the new order
+            // Small delay to ensure server has processed the new order
+            setTimeout(() => {
+                loadOrders(); // This will refresh the list and show the new order
+            }, 500);
         } else {
             const errorData = await response.json();
             console.error('Failed to add order:', errorData);
