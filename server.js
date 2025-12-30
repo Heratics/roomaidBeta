@@ -1005,19 +1005,21 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    // Check if hotel exists
+    // Check if hotel exists and get its code
     const existingHotel = await db.query(`
-      SELECT id FROM hotels WHERE id = ?
+      SELECT id, code FROM hotels WHERE id = ?
     `, [id]);
 
     if (existingHotel.length === 0) {
       return res.status(404).json({ error: 'Hotel not found' });
     }
 
-    // Check if hotel has users
+    const hotelCode = existingHotel[0].code;
+
+    // Check if hotel has users (users reference hotel_code, not hotel id)
     const hotelUsers = await db.query(`
       SELECT COUNT(*) as userCount FROM users WHERE hotel_code = ?
-    `, [id]);
+    `, [hotelCode]);
 
     if (hotelUsers[0].userCount > 0) {
       return res.status(400).json({ error: 'Cannot delete hotel with existing users. Please reassign or delete users first.' });
@@ -1053,14 +1055,14 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    // Check if user exists and belongs to the same hotel
+    // Check if target user exists (admin can delete any user)
     const targetUser = await db.query(`
       SELECT id, username FROM users 
-      WHERE id = ? AND hotel_code = ?
-    `, [id, user.hotel_code || user.hotelCode]);
+      WHERE id = ?
+    `, [id]);
 
     if (targetUser.length === 0) {
-      return res.status(404).json({ error: 'User not found or access denied' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
     // Prevent admin from deleting themselves
