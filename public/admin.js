@@ -211,9 +211,6 @@ function hideLoginForm() {
                             <label for="hotelCode">Hotel Code:</label>
                             <select id="hotelCode" name="hotelCode" required>
                                 <option value="">Select Hotel</option>
-                                <option value="HOTEL001">HOTEL001 - Grand Plaza Hotel</option>
-                                <option value="HOTEL002">HOTEL002 - Seaside Resort & Spa</option>
-                                <option value="HOTEL003">HOTEL003 - Downtown Business Center</option>
                             </select>
                         </div>
                         
@@ -1010,10 +1007,36 @@ function displayHotels(hotels) {
             `;
             if (tbody) tbody.appendChild(row);
         });
+        
+        // Also populate the hotel dropdown in the add user form
+        populateHotelDropdown(hotels);
     } else {
         const row = document.createElement('tr');
         row.innerHTML = '<td colspan="3" style="text-align: center; color: #666;">No hotels found</td>';
         if (tbody) tbody.appendChild(row);
+        
+        // Clear dropdown if no hotels
+        populateHotelDropdown([]);
+    }
+}
+
+/**
+ * Populate the hotel dropdown in the add user form
+ */
+function populateHotelDropdown(hotels) {
+    const hotelSelect = document.getElementById('hotelCode');
+    if (!hotelSelect) return;
+    
+    // Clear existing options except the first "Select Hotel" option
+    hotelSelect.innerHTML = '<option value="">Select Hotel</option>';
+    
+    if (hotels && hotels.length > 0) {
+        hotels.forEach(hotel => {
+            const option = document.createElement('option');
+            option.value = hotel.code;
+            option.textContent = `${hotel.code} - ${hotel.name}`;
+            hotelSelect.appendChild(option);
+        });
     }
 }
 
