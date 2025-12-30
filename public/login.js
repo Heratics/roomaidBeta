@@ -184,7 +184,6 @@ async function seedData() {
         console.error('Error seeding data:', error);
     }
 }
-seedData();
 
 // Expose seed function globally for development
 window.seedData = seedData;

@@ -882,7 +882,7 @@ app.post('/api/admin/hotels', authenticateToken, async (req, res) => {
 
     // Check if hotel code already exists
     const existingHotels = await db.query(`
-      SELECT id FROM hotels WHERE code = @param1
+      SELECT id FROM hotels WHERE code = ?
     `, [code]);
 
     if (existingHotels.length > 0) {
@@ -890,10 +890,9 @@ app.post('/api/admin/hotels', authenticateToken, async (req, res) => {
     }
 
     // Create hotel
-    const result = await db.query(`
+    await db.query(`
       INSERT INTO hotels (id, name, code, createdAt, updatedAt)
-      OUTPUT INSERTED.id
-      VALUES (@param1, @param2, @param3, @param4, @param5)
+      VALUES (?, ?, ?, ?, ?)
     `, [
       code, // Use code as ID for simplicity
       name,
@@ -906,7 +905,7 @@ app.post('/api/admin/hotels', authenticateToken, async (req, res) => {
       success: true,
       message: 'Hotel created successfully',
       hotel: {
-        id: result[0].id,
+        id: code,
         name,
         code
       }
@@ -949,7 +948,7 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
 
     // Check if username already exists
     const existingUsers = await db.query(`
-      SELECT id FROM users WHERE username = @param1
+      SELECT id FROM users WHERE username = ?
     `, [usernameValidation.value]);
 
     if (existingUsers.length > 0) {
@@ -957,10 +956,9 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
     }
 
     // Create user with plain text password for now (matching existing system)
-    const result = await db.query(`
+    await db.query(`
       INSERT INTO users (username, passwordHash, hotel_code, role, first_name, last_name, createdAt)
-      OUTPUT INSERTED.id
-      VALUES (@param1, @param2, @param3, @param4, @param5, @param6, @param7)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
       usernameValidation.value,
       passwordValidation.value, // Store as plain text for now
@@ -971,7 +969,7 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
       new Date()
     ]);
 
-    const newUserId = result[0].id;
+    const newUserId = result.insertId;
 
     res.json({
       success: true,
@@ -1211,13 +1209,12 @@ app.post('/api/debug/create-user', async (req, res) => {
     // Create a simple user
     const result = await db.query(`
       INSERT INTO users (username, passwordHash, hotel_code, role, first_name, last_name)
-      OUTPUT INSERTED.id
-      VALUES (@param1, @param2, @param3, @param4, @param5, @param6)
+      VALUES (?, ?, ?, ?, ?, ?)
     `, [username, password, hotelCode, role || 'employee', username, '']);
 
     res.json({
       success: true,
-      userId: result[0].id,
+      userId: result.insertId,
       message: 'User created successfully'
     });
   } catch (error) {
