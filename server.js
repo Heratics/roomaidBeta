@@ -820,14 +820,14 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
                  h.name as hotelName
           FROM users u
           LEFT JOIN hotels h ON u.hotel_code = h.code
-          WHERE u.hotel_code = @param1
+          WHERE u.hotel_code = ?
           ORDER BY u.id DESC
         `;
 
         countQuery = `
           SELECT COUNT(*) as total
           FROM users u
-          WHERE u.hotel_code = @param1
+          WHERE u.hotel_code = ?
         `;
         params = [user.hotel_code || user.hotelCode];
       }
@@ -1007,7 +1007,7 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
 
     // Check if hotel exists
     const existingHotel = await db.query(`
-      SELECT id FROM hotels WHERE id = @param1
+      SELECT id FROM hotels WHERE id = ?
     `, [id]);
 
     if (existingHotel.length === 0) {
@@ -1016,7 +1016,7 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
 
     // Check if hotel has users
     const hotelUsers = await db.query(`
-      SELECT COUNT(*) as userCount FROM users WHERE hotel_code = @param1
+      SELECT COUNT(*) as userCount FROM users WHERE hotel_code = ?
     `, [id]);
 
     if (hotelUsers[0].userCount > 0) {
@@ -1025,7 +1025,7 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
 
     // Delete hotel
     await db.query(`
-      DELETE FROM hotels WHERE id = @param1
+      DELETE FROM hotels WHERE id = ?
     `, [id]);
 
     res.json({
@@ -1056,7 +1056,7 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
     // Check if user exists and belongs to the same hotel
     const targetUser = await db.query(`
       SELECT id, username FROM users 
-      WHERE id = @param1 AND hotel_code = @param2
+      WHERE id = ? AND hotel_code = ?
     `, [id, user.hotel_code || user.hotelCode]);
 
     if (targetUser.length === 0) {
@@ -1070,7 +1070,7 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
 
     // Delete the user
     await db.query(`
-      DELETE FROM users WHERE id = @param1
+      DELETE FROM users WHERE id = ?
     `, [id]);
 
     res.json({
@@ -1091,20 +1091,20 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
 app.post('/api/seed', async (req, res) => {
   try {
     // Create sample hotels if they don't exist
-    await db.query(`
-      IF NOT EXISTS (SELECT * FROM hotels WHERE code = 'HOTEL001')
-      INSERT INTO hotels (id, code, name) VALUES (NEWID(), 'HOTEL001', 'Grand Plaza Hotel')
-    `);
+    const existingHotel1 = await db.query(`SELECT id FROM hotels WHERE code = ?`, ['HOTEL001']);
+    if (existingHotel1.length === 0) {
+      await db.query(`INSERT INTO hotels (id, code, name) VALUES (?, ?, ?)`, ['HOTEL001', 'HOTEL001', 'Grand Plaza Hotel']);
+    }
 
-    await db.query(`
-      IF NOT EXISTS (SELECT * FROM hotels WHERE code = 'HOTEL002')
-      INSERT INTO hotels (id, code, name) VALUES (NEWID(), 'HOTEL002', 'Seaside Resort & Spa')
-    `);
+    const existingHotel2 = await db.query(`SELECT id FROM hotels WHERE code = ?`, ['HOTEL002']);
+    if (existingHotel2.length === 0) {
+      await db.query(`INSERT INTO hotels (id, code, name) VALUES (?, ?, ?)`, ['HOTEL002', 'HOTEL002', 'Seaside Resort & Spa']);
+    }
 
-    await db.query(`
-      IF NOT EXISTS (SELECT * FROM hotels WHERE code = 'HOTEL003')
-      INSERT INTO hotels (id, code, name) VALUES (NEWID(), 'HOTEL003', 'Downtown Business Center')
-    `);
+    const existingHotel3 = await db.query(`SELECT id FROM hotels WHERE code = ?`, ['HOTEL003']);
+    if (existingHotel3.length === 0) {
+      await db.query(`INSERT INTO hotels (id, code, name) VALUES (?, ?, ?)`, ['HOTEL003', 'HOTEL003', 'Downtown Business Center']);
+    }
 
     // Create sample users for testing
     const user1 = await auth.createUser('admin', 'password123', 'HOTEL001', 'admin');
@@ -1114,8 +1114,8 @@ app.post('/api/seed', async (req, res) => {
     await db.query(`
       INSERT INTO engineering_orders (order_name, order_notes, sent_by, created_at, hotel_code)
       VALUES 
-        (@param1, @param2, @param3, @param4, @param5),
-        (@param6, @param7, @param8, @param9, @param10)
+        (?, ?, ?, ?, ?),
+        (?, ?, ?, ?, ?)
     `, [
       'Room 101', 'Light bulb needs replacement', user1.id, new Date(), 'HOTEL001',
       'Room 312', 'AC not working properly', user1.id, new Date(), 'HOTEL001'
@@ -1125,8 +1125,8 @@ app.post('/api/seed', async (req, res) => {
     await db.query(`
       INSERT INTO housekeeping_orders (order_name, order_notes, sent_by, created_at, hotel_code)
       VALUES 
-        (@param1, @param2, @param3, @param4, @param5),
-        (@param6, @param7, @param8, @param9, @param10)
+        (?, ?, ?, ?, ?),
+        (?, ?, ?, ?, ?)
     `, [
       'Room 205', 'Room needs cleaning after checkout', user1.id, new Date(), 'HOTEL001',
       'Room 105', 'Deep clean required', user2.id, new Date(), 'HOTEL002'
