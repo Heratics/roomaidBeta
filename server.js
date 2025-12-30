@@ -956,7 +956,7 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
     }
 
     // Create user with plain text password for now (matching existing system)
-    const result = await db.query(`
+    await db.query(`
       INSERT INTO users (username, passwordHash, hotel_code, role, first_name, last_name, createdAt)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
@@ -1231,7 +1231,8 @@ async function startServer() {
     // Start listening for HTTP requests
     app.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`� Database Host: ${config.db.host}`);
+      console.log(`🌍 Local: http://localhost:${PORT}`);
+      console.log(`📦 Database Host: ${config.db.host}`);
       console.log(`🐛 Debug endpoint enabled`);
     });
   } catch (error) {
