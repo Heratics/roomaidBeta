@@ -899,7 +899,6 @@ function showSection(sectionName) {
  * Handle add hotel form submission
  */
 async function handleAddHotel(event) {
-    event.preventDefault();
     
     // Throttle requests
     if (!throttleRequest()) {
