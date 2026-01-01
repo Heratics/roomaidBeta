@@ -36,7 +36,7 @@
             border-radius: 8px;
             cursor: pointer;
             font-size: 1.2rem;
-            transition: all 0.3s ease;
+            transition: background 0.3s ease, box-shadow 0.3s ease;
             box-shadow: 0 2px 4px var(--shadow-primary);
             display: flex;
             align-items: center;
@@ -45,8 +45,17 @@
         
         .settings-btn:hover {
             background: var(--bg-tertiary);
-            transform: rotate(90deg);
             box-shadow: 0 4px 8px var(--shadow-primary);
+        }
+        
+        .settings-btn-icon {
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+        
+        .settings-btn:hover .settings-btn-icon,
+        .settings-btn:active .settings-btn-icon {
+            transform: rotate(90deg);
         }
         
         .settings-dropdown {
@@ -154,16 +163,18 @@
                         <p>by Rubble Tech</p>
                     </div>
                 </div>
-                <!-- Right side: User info, language indicator, and settings -->
+                <!-- Right side: User info and settings -->
                 <div class="header-right">
-                    <div class="language-indicator">
-                        <span id="currentLanguage">EN</span>
-                        <button id="toggleLanguageBtn" class="btn btn-secondary btn-small" title="Switch keyboard language">🌐</button>
-                    </div>
                     <span id="currentUser"></span>
                     <div class="settings-menu">
-                        <button id="settingsBtn" class="settings-btn" title="Settings" onclick="toggleSettingsMenu()">⚙️</button>
+                        <button id="settingsBtn" class="settings-btn" title="Settings" onclick="toggleSettingsMenu()">
+                            <span class="settings-btn-icon">⚙️</span>
+                        </button>
                         <div id="settingsDropdown" class="settings-dropdown">
+                            <button class="settings-item" onclick="toggleLanguage()">
+                                <span class="settings-item-icon" id="languageIcon">🌐</span>
+                                <span id="languageText">Language: <span id="currentLanguage">EN</span></span>
+                            </button>
                             <button class="settings-item" onclick="toggleDarkMode()">
                                 <span class="settings-item-icon" id="themeIcon">🌙</span>
                                 <span id="themeText">Dark Mode</span>

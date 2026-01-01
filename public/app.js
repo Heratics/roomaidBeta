@@ -20,7 +20,6 @@ const dateFilter = document.getElementById('dateFilter');
 const clearDateFilter = document.getElementById('clearDateFilter');
 const orderNotes = document.getElementById('orderNotes');
 const currentLanguage = document.getElementById('currentLanguage');
-const toggleLanguageBtn = document.getElementById('toggleLanguageBtn');
 
 // Settings menu state
 let settingsMenuOpen = false;
@@ -117,10 +116,7 @@ function setupEventListeners() {
     
     // Dark mode toggle
     
-    // Language toggle
-    if (toggleLanguageBtn) {
-        toggleLanguageBtn.addEventListener('click', toggleKeyboardLanguage);
-    }
+    // Language toggle is now in settings menu
 }
 
 
@@ -733,9 +729,22 @@ function autoDetectTheme() {
 
 
 
+// Toggle language (wrapper for settings menu)
+function toggleLanguage() {
+    toggleKeyboardLanguage();
+    
+    // Close settings menu after toggling
+    const settingsDropdown = document.getElementById('settingsDropdown');
+    if (settingsDropdown) {
+        settingsDropdown.classList.remove('active');
+        settingsMenuOpen = false;
+    }
+}
+
 // Toggle keyboard language for the entire application (English/Arabic only)
 function toggleKeyboardLanguage() {
-    const currentLang = currentLanguage.textContent;
+    const currentLangElement = document.getElementById('currentLanguage');
+    const currentLang = currentLangElement ? currentLangElement.textContent : 'EN';
     let newLang = 'EN';
     
     // Toggle between English and Arabic only
@@ -749,7 +758,11 @@ function toggleKeyboardLanguage() {
         document.documentElement.setAttribute('lang', 'en');
     }
     
-    currentLanguage.textContent = newLang;
+    // Update language display in settings menu
+    if (currentLangElement) {
+        currentLangElement.textContent = newLang;
+    }
+    
     localStorage.setItem('currentLanguage', newLang);
     
     // Update UI language
@@ -814,8 +827,11 @@ function updateUILanguage(language) {
 // Initialize language settings
 function initializeLanguage() {
     const savedLanguage = localStorage.getItem('currentLanguage') || 'EN';
+    const currentLangElement = document.getElementById('currentLanguage');
     
-    currentLanguage.textContent = savedLanguage;
+    if (currentLangElement) {
+        currentLangElement.textContent = savedLanguage;
+    }
     
     // Apply initial language settings
     updateUILanguage(savedLanguage);

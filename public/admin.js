@@ -186,7 +186,9 @@ function hideLoginForm() {
                 <p>User Management & System Administration</p>
                 <div class="header-settings">
                     <div class="settings-menu">
-                        <button id="settingsBtn" class="settings-btn" title="Settings" onclick="toggleSettingsMenu()">⚙️</button>
+                        <button id="settingsBtn" class="settings-btn" title="Settings" onclick="toggleSettingsMenu()">
+                            <span class="settings-btn-icon">⚙️</span>
+                        </button>
                         <div id="settingsDropdown" class="settings-dropdown">
                             <button class="settings-item" onclick="toggleDarkMode()">
                                 <span class="settings-item-icon" id="themeIcon">🌙</span>
