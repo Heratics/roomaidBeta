@@ -9,7 +9,6 @@ let authToken = null;
 let isLoading = false;
 let lastRequestTime = 0;
 const REQUEST_THROTTLE = 500; // Minimum 500ms between requests (reduced from 1000ms)
-const themeToggle = document.getElementById('themeToggle');
 let autoRefreshInterval = null;
 const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
 
@@ -19,6 +18,9 @@ let pageSize = 25;
 let totalUsers = 0;
 let totalPages = 0;
 
+// Settings menu state
+let settingsMenuOpen = false;
+
 // Initialize admin panel when page loads
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize dark mode
@@ -26,6 +28,20 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set up form handlers
     setupFormHandlers();
+    
+    // Close settings menu when clicking outside
+    document.addEventListener('click', function(event) {
+        const settingsMenu = document.querySelector('.settings-menu');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsDropdown = document.getElementById('settingsDropdown');
+        
+        if (settingsMenu && settingsBtn && settingsDropdown) {
+            if (!settingsMenu.contains(event.target)) {
+                settingsDropdown.classList.remove('active');
+                settingsMenuOpen = false;
+            }
+        }
+    });
     
     // Check if user has an active session (like main app)
     const savedToken = sessionStorage.getItem('authToken');
@@ -168,12 +184,26 @@ function hideLoginForm() {
             <div class="admin-header">
                 <h1>🏨 RoomAid Admin Panel</h1>
                 <p>User Management & System Administration</p>
+                <div class="header-settings">
+                    <div class="settings-menu">
+                        <button id="settingsBtn" class="settings-btn" title="Settings" onclick="toggleSettingsMenu()">⚙️</button>
+                        <div id="settingsDropdown" class="settings-dropdown">
+                            <button class="settings-item" onclick="toggleDarkMode()">
+                                <span class="settings-item-icon" id="themeIcon">🌙</span>
+                                <span id="themeText">Dark Mode</span>
+                            </button>
+                            <button class="settings-item danger" onclick="logout()">
+                                <span class="settings-item-icon">🚪</span>
+                                <span>Logout</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
             
             <div class="admin-nav">
                 <button class="nav-btn active" onclick="showSection('users')">👥 Manage Users</button>
                 <button class="nav-btn" onclick="showSection('hotels')">🏨 Manage Hotels</button>
-                <button class="nav-btn" onclick="logout()">🚪 Logout</button>
             </div>
             
             <!-- Alert Messages -->
@@ -291,6 +321,9 @@ function hideLoginForm() {
         
         // Re-setup form handlers
         setupFormHandlers();
+        
+        // Re-initialize dark mode to update the settings menu
+        initializeDarkMode();
     }
 }
 
@@ -1137,6 +1170,25 @@ async function logout() {
 }
 
 // ============================================================================
+// SETTINGS MENU FUNCTIONALITY
+// ============================================================================
+
+/**
+ * Toggle settings menu open/closed
+ */
+function toggleSettingsMenu() {
+    const settingsDropdown = document.getElementById('settingsDropdown');
+    if (settingsDropdown) {
+        settingsMenuOpen = !settingsMenuOpen;
+        if (settingsMenuOpen) {
+            settingsDropdown.classList.add('active');
+        } else {
+            settingsDropdown.classList.remove('active');
+        }
+    }
+}
+
+// ============================================================================
 // DARK MODE FUNCTIONALITY
 // ============================================================================
 
@@ -1147,11 +1199,6 @@ function initializeDarkMode() {
     // Check for saved theme preference or default to light mode
     const savedTheme = localStorage.getItem('theme') || 'light';
     setTheme(savedTheme);
-    
-    // Add event listener for theme toggle
-    if (themeToggle) {
-        themeToggle.addEventListener('click', toggleDarkMode);
-    }
 }
 
 /**
@@ -1161,6 +1208,13 @@ function toggleDarkMode() {
     const currentTheme = document.documentElement.getAttribute('data-theme');
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
+    
+    // Close settings menu after toggling
+    const settingsDropdown = document.getElementById('settingsDropdown');
+    if (settingsDropdown) {
+        settingsDropdown.classList.remove('active');
+        settingsMenuOpen = false;
+    }
 }
 
 /**
@@ -1170,10 +1224,16 @@ function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
     
-    // Update theme toggle button icon
-    if (themeToggle) {
-        themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
-        themeToggle.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    // Update theme toggle button icon and text in settings menu
+    const themeIcon = document.getElementById('themeIcon');
+    const themeText = document.getElementById('themeText');
+    
+    if (themeIcon) {
+        themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+    }
+    
+    if (themeText) {
+        themeText.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
     }
     
     // Update meta theme color for mobile browsers

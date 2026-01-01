@@ -8,7 +8,6 @@ const AUTO_REFRESH_INTERVAL = 10000; // Refresh every 10 seconds
 
 // DOM elements
 const dashboardScreen = document.getElementById('dashboardScreen');
-const logoutBtn = document.getElementById('logoutBtn');
 const addOrderBtn = document.getElementById('addOrderBtn');
 const addOrderModal = document.getElementById('addOrderModal');
 const addOrderForm = document.getElementById('addOrderForm');
@@ -19,10 +18,12 @@ const hotelName = document.getElementById('hotelName');
 const currentUserSpan = document.getElementById('currentUser');
 const dateFilter = document.getElementById('dateFilter');
 const clearDateFilter = document.getElementById('clearDateFilter');
-const themeToggle = document.getElementById('themeToggle');
 const orderNotes = document.getElementById('orderNotes');
 const currentLanguage = document.getElementById('currentLanguage');
 const toggleLanguageBtn = document.getElementById('toggleLanguageBtn');
+
+// Settings menu state
+let settingsMenuOpen = false;
 
 // Delete confirmation modal elements
 const deleteConfirmModal = document.getElementById('deleteConfirmModal');
@@ -33,7 +34,7 @@ const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
     // Check if all required DOM elements exist
-    if (!dashboardScreen || !logoutBtn || !addOrderBtn || !ordersList) {
+    if (!dashboardScreen || !addOrderBtn || !ordersList) {
         console.error('Required DOM elements not found. Dashboard may not function properly.');
     }
     
@@ -43,6 +44,20 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize language support
     initializeLanguage();
+    
+    // Close settings menu when clicking outside
+    document.addEventListener('click', function(event) {
+        const settingsMenu = document.querySelector('.settings-menu');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsDropdown = document.getElementById('settingsDropdown');
+        
+        if (settingsMenu && settingsBtn && settingsDropdown) {
+            if (!settingsMenu.contains(event.target)) {
+                settingsDropdown.classList.remove('active');
+                settingsMenuOpen = false;
+            }
+        }
+    });
     
     // Check if user has an active session
     const savedToken = sessionStorage.getItem('authToken');
@@ -63,9 +78,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Event listeners
 function setupEventListeners() {
-    // Logout
-    logoutBtn.addEventListener('click', handleLogout);
-    
     // Add order
     addOrderBtn.addEventListener('click', showAddOrderModal);
     closeModalBtn.addEventListener('click', hideAddOrderModal);
@@ -104,9 +116,6 @@ function setupEventListeners() {
     }
     
     // Dark mode toggle
-    if (themeToggle) {
-        themeToggle.addEventListener('click', toggleDarkMode);
-    }
     
     // Language toggle
     if (toggleLanguageBtn) {
@@ -648,11 +657,37 @@ function initializeDarkMode() {
     setTheme(savedTheme);
 }
 
+// ============================================================================
+// SETTINGS MENU FUNCTIONALITY
+// ============================================================================
+
+/**
+ * Toggle settings menu open/closed
+ */
+function toggleSettingsMenu() {
+    const settingsDropdown = document.getElementById('settingsDropdown');
+    if (settingsDropdown) {
+        settingsMenuOpen = !settingsMenuOpen;
+        if (settingsMenuOpen) {
+            settingsDropdown.classList.add('active');
+        } else {
+            settingsDropdown.classList.remove('active');
+        }
+    }
+}
+
 // Toggle between light and dark themes
 function toggleDarkMode() {
     const currentTheme = document.documentElement.getAttribute('data-theme');
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
+    
+    // Close settings menu after toggling
+    const settingsDropdown = document.getElementById('settingsDropdown');
+    if (settingsDropdown) {
+        settingsDropdown.classList.remove('active');
+        settingsMenuOpen = false;
+    }
 }
 
 // Set the theme and update UI
@@ -660,10 +695,16 @@ function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
     
-    // Update theme toggle button icon
-    if (themeToggle) {
-        themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
-        themeToggle.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    // Update theme toggle button icon and text in settings menu
+    const themeIcon = document.getElementById('themeIcon');
+    const themeText = document.getElementById('themeText');
+    
+    if (themeIcon) {
+        themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+    }
+    
+    if (themeText) {
+        themeText.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
     }
     
     // Update meta theme color for mobile browsers
@@ -748,7 +789,7 @@ function updateUILanguage(language) {
     
     // Update button texts
     if (cancelOrderBtn) cancelOrderBtn.textContent = texts.cancel;
-    if (logoutBtn) logoutBtn.textContent = texts.logout;
+    // Logout is now in settings menu, no need to update here
     if (clearDateFilter) clearDateFilter.textContent = texts.clear;
     
     // Update labels
