@@ -85,6 +85,24 @@ class Database {
         )
       `);
 
+      // Create Order Logs table to track changes
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS order_logs (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          order_id INT NOT NULL,
+          order_type ENUM('engineering', 'housekeeping') NOT NULL,
+          action_type ENUM('deleted', 'edited', 'restored') NOT NULL,
+          changed_by INT NOT NULL,
+          changed_by_name VARCHAR(200),
+          hotel_code VARCHAR(50) NOT NULL,
+          old_data JSON,
+          new_data JSON,
+          change_description TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (changed_by) REFERENCES users(id)
+        )
+      `);
+
       console.log('✅ Database tables created/verified');
     } catch (error) {
       console.error('❌ Error creating tables:', error);

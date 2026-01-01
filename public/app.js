@@ -30,6 +30,18 @@ const closeDeleteModalBtn = document.getElementById('closeDeleteModalBtn');
 const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
+// Logs modal elements
+const logsModal = document.getElementById('logsModal');
+const closeLogsModalBtn = document.getElementById('closeLogsModalBtn');
+const logsMenuItem = document.getElementById('logsMenuItem');
+
+// Edit order modal elements
+const editOrderModal = document.getElementById('editOrderModal');
+const closeEditModalBtn = document.getElementById('closeEditModalBtn');
+const cancelEditBtn = document.getElementById('cancelEditBtn');
+const editOrderForm = document.getElementById('editOrderForm');
+let orderToEdit = null;
+
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
     // Check if all required DOM elements exist
@@ -108,6 +120,24 @@ function setupEventListeners() {
     
     if (cancelDeleteBtn) {
         cancelDeleteBtn.addEventListener('click', hideDeleteConfirmModal);
+    }
+    
+    // Logs modal
+    if (closeLogsModalBtn) {
+        closeLogsModalBtn.addEventListener('click', hideLogsModal);
+    }
+    
+    // Edit order modal
+    if (closeEditModalBtn) {
+        closeEditModalBtn.addEventListener('click', hideEditOrderModal);
+    }
+    
+    if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', hideEditOrderModal);
+    }
+    
+    if (editOrderForm) {
+        editOrderForm.addEventListener('submit', handleEditOrder);
     }
     
     if (confirmDeleteBtn) {
@@ -329,7 +359,8 @@ function createOrderCard(order) {
             <div class="order-actions">
                 ${!isCompleted && !isReceived ? `<button class="btn btn-primary receive-btn" data-order-id="${escapeHtml(order.id)}">Receive</button>` : ''}
                 ${isReceived && !isCompleted ? `<button class="btn btn-success complete-btn" data-order-id="${escapeHtml(order.id)}">Complete</button>` : ''}
-                                 <button class="btn btn-danger delete-btn" data-order-id="${escapeHtml(order.id)}">🗑</button>
+                <button class="btn btn-secondary edit-btn" data-order-id="${escapeHtml(order.id)}" title="Edit Order">✏️</button>
+                <button class="btn btn-danger delete-btn" data-order-id="${escapeHtml(order.id)}">🗑</button>
             </div>
         </div>
         
@@ -365,6 +396,13 @@ function createOrderCard(order) {
     const completeBtn = card.querySelector('.complete-btn');
     if (completeBtn) {
         completeBtn.addEventListener('click', () => completeOrder(order.id));
+    }
+    
+    const editBtn = card.querySelector('.edit-btn');
+    if (editBtn) {
+        editBtn.addEventListener('click', () => {
+            showEditOrderModal(order);
+        });
     }
     
     const deleteBtn = card.querySelector('.delete-btn');
@@ -859,6 +897,222 @@ function autoDetectArabicText(event) {
         textarea.style.direction = 'ltr';
         textarea.style.textAlign = 'left';
         textarea.style.fontFamily = 'inherit';
+    }
+}
+
+// ============================================================================
+// LOGS FUNCTIONALITY
+// ============================================================================
+
+// Show logs modal
+function showLogsModal() {
+    if (logsModal) {
+        logsModal.style.display = 'flex';
+        switchLogsTab('deleted');
+        // Close settings menu
+        const settingsDropdown = document.getElementById('settingsDropdown');
+        if (settingsDropdown) {
+            settingsDropdown.classList.remove('active');
+            settingsMenuOpen = false;
+        }
+    }
+}
+
+// Hide logs modal
+function hideLogsModal() {
+    if (logsModal) {
+        logsModal.style.display = 'none';
+    }
+}
+
+// Switch logs tab
+function switchLogsTab(tab) {
+    // Update tab buttons
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+        if (btn.dataset.tab === tab) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    
+    // Show/hide sections
+    const deletedSection = document.getElementById('deletedLogs');
+    const editedSection = document.getElementById('editedLogs');
+    
+    if (tab === 'deleted') {
+        if (deletedSection) deletedSection.style.display = 'block';
+        if (editedSection) editedSection.style.display = 'none';
+        loadLogs('deleted');
+    } else {
+        if (deletedSection) deletedSection.style.display = 'none';
+        if (editedSection) editedSection.style.display = 'block';
+        loadLogs('edited');
+    }
+}
+
+// Load logs
+async function loadLogs(type) {
+    try {
+        const response = await fetch(`/api/logs?type=${type}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${currentToken}`
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            displayLogs(data.logs, type);
+        } else {
+            console.error('Failed to load logs');
+        }
+    } catch (error) {
+        console.error('Error loading logs:', error);
+    }
+}
+
+// Display logs
+function displayLogs(logs, type) {
+    const listId = type === 'deleted' ? 'deletedLogsList' : 'editedLogsList';
+    const listElement = document.getElementById(listId);
+    
+    if (!listElement) return;
+    
+    if (logs.length === 0) {
+        listElement.innerHTML = `
+            <div class="empty-state">
+                <h3>No ${type} orders</h3>
+                <p>No ${type} orders found in the logs.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    listElement.innerHTML = '';
+    
+    logs.forEach(log => {
+        const logItem = document.createElement('div');
+        logItem.className = `log-item ${type}`;
+        
+        const oldData = log.old_data ? JSON.parse(log.old_data) : null;
+        const newData = log.new_data ? JSON.parse(log.new_data) : null;
+        
+        const orderName = oldData?.order_name || newData?.order_name || 'Unknown';
+        const roomNumber = orderName.replace('Room ', '');
+        const changedAt = new Date(log.created_at).toLocaleString();
+        const changedBy = log.changed_by_full_name || log.changed_by_name || 'Unknown';
+        const department = log.order_type === 'engineering' ? 'Engineering' : 'Housekeeping';
+        
+        let detailsHtml = '';
+        if (type === 'edited' && oldData && newData) {
+            detailsHtml = `
+                <div class="log-details">
+                    <strong>Changes:</strong><br>
+                    ${oldData.order_name !== newData.order_name ? 
+                        `Order Name: "${oldData.order_name}" → "${newData.order_name}"<br>` : ''}
+                    ${oldData.order_notes !== newData.order_notes ? 
+                        `Notes: "${oldData.order_notes || ''}" → "${newData.order_notes || ''}"<br>` : ''}
+                </div>
+            `;
+        } else if (type === 'deleted' && oldData) {
+            detailsHtml = `
+                <div class="log-details">
+                    <strong>Deleted Order Details:</strong><br>
+                    Room: ${roomNumber}<br>
+                    Department: ${department}<br>
+                    ${oldData.order_notes ? `Notes: ${escapeHtml(oldData.order_notes)}<br>` : ''}
+                </div>
+            `;
+        }
+        
+        logItem.innerHTML = `
+            <div class="log-header">
+                <div class="log-title">Room ${escapeHtml(roomNumber)} - ${department}</div>
+                <div class="log-meta">${escapeHtml(changedAt)}</div>
+            </div>
+            <div class="log-description">
+                ${escapeHtml(log.change_description || `${type === 'deleted' ? 'Deleted' : 'Edited'} by ${changedBy}`)}
+            </div>
+            ${detailsHtml}
+        `;
+        
+        listElement.appendChild(logItem);
+    });
+}
+
+// ============================================================================
+// EDIT ORDER FUNCTIONALITY
+// ============================================================================
+
+// Show edit order modal
+function showEditOrderModal(order) {
+    orderToEdit = order;
+    
+    if (editOrderModal && editOrderForm) {
+        // Extract room number from order_name
+        const roomNumber = order.order_name ? order.order_name.replace('Room ', '') : '';
+        
+        document.getElementById('editOrderRoomNumber').value = roomNumber;
+        document.getElementById('editOrderDepartment').value = currentDepartment;
+        document.getElementById('editOrderNotes').value = order.order_notes || '';
+        
+        editOrderModal.style.display = 'flex';
+    }
+}
+
+// Hide edit order modal
+function hideEditOrderModal() {
+    if (editOrderModal) {
+        editOrderModal.style.display = 'none';
+        orderToEdit = null;
+        if (editOrderForm) {
+            editOrderForm.reset();
+        }
+    }
+}
+
+// Handle edit order form submission
+async function handleEditOrder(event) {
+    event.preventDefault();
+    
+    if (!orderToEdit) return;
+    
+    const formData = new FormData(event.target);
+    const roomNumber = formData.get('roomNumber');
+    const department = formData.get('department');
+    const notes = formData.get('notes');
+    
+    const orderName = `Room ${roomNumber}`;
+    
+    try {
+        const response = await fetch(`/api/orders/${orderToEdit.id}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${currentToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                order_name: orderName,
+                order_notes: notes,
+                department: department
+            })
+        });
+        
+        if (response.ok) {
+            hideEditOrderModal();
+            // Reload orders to show updated data
+            setTimeout(() => {
+                loadOrders();
+            }, 500);
+        } else {
+            const error = await response.json();
+            console.error('Failed to edit order:', error);
+            alert('Failed to edit order. Please try again.');
+        }
+    } catch (error) {
+        console.error('Error editing order:', error);
+        alert('Error editing order. Please try again.');
     }
 }
 

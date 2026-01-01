@@ -439,12 +439,33 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Order not found or access denied' });
     }
 
+    // Get order data before deletion for logging
+    const orderData = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
+    
     // Soft delete the order by setting deleted_at timestamp
     await db.query(`
       UPDATE ${tableName} 
       SET deleted_at = ?
       WHERE id = ?
     `, [new Date(), id]);
+
+    // Log the deletion
+    const userFullName = user.first_name && user.last_name 
+      ? `${user.first_name} ${user.last_name}` 
+      : user.username;
+    
+    await db.query(`
+      INSERT INTO order_logs (order_id, order_type, action_type, changed_by, changed_by_name, hotel_code, old_data, change_description)
+      VALUES (?, ?, 'deleted', ?, ?, ?, ?, ?)
+    `, [
+      id,
+      tableName === 'engineering_orders' ? 'engineering' : 'housekeeping',
+      user.id,
+      userFullName,
+      user.hotel_code || user.hotelCode,
+      JSON.stringify(orderData[0]),
+      `Order deleted by ${userFullName}`
+    ]);
 
     // Return success response
     res.json({ success: true, message: 'Order deleted successfully' });
@@ -541,6 +562,79 @@ app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
     console.error('Error details:', error.message);
     console.error('Error stack:', error.stack);
     res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+/**
+ * PUT /api/orders/:id
+ * Edit an order
+ * Requires authentication
+ * URL parameter: id (order ID)
+ */
+app.put('/api/orders/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { order_name, order_notes, department } = req.body;
+    const user = req.user;
+
+    // Validate required fields
+    if (!order_name || !department) {
+      return res.status(400).json({ error: 'Order name and department are required' });
+    }
+
+    // Determine table name based on department
+    const tableName = department.toLowerCase() === 'engineering' ? 'engineering_orders' : 'housekeeping_orders';
+
+    // Check if order exists and belongs to user's hotel
+    const orderCheck = await db.query(`SELECT * FROM ${tableName} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
+    
+    if (orderCheck.length === 0) {
+      return res.status(404).json({ error: 'Order not found or access denied' });
+    }
+
+    const oldOrderData = orderCheck[0];
+
+    // Update the order
+    await db.query(`
+      UPDATE ${tableName} 
+      SET order_name = ?, order_notes = ?
+      WHERE id = ?
+    `, [order_name, order_notes || null, id]);
+
+    // Get updated order data
+    const updatedOrder = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
+
+    // Log the edit
+    const userFullName = user.first_name && user.last_name 
+      ? `${user.first_name} ${user.last_name}` 
+      : user.username;
+    
+    const changes = [];
+    if (oldOrderData.order_name !== order_name) {
+      changes.push(`Order name: "${oldOrderData.order_name}" → "${order_name}"`);
+    }
+    if (oldOrderData.order_notes !== (order_notes || null)) {
+      changes.push(`Notes: "${oldOrderData.order_notes || ''}" → "${order_notes || ''}"`);
+    }
+
+    await db.query(`
+      INSERT INTO order_logs (order_id, order_type, action_type, changed_by, changed_by_name, hotel_code, old_data, new_data, change_description)
+      VALUES (?, ?, 'edited', ?, ?, ?, ?, ?, ?)
+    `, [
+      id,
+      department.toLowerCase() === 'engineering' ? 'engineering' : 'housekeeping',
+      user.id,
+      userFullName,
+      user.hotel_code || user.hotelCode,
+      JSON.stringify(oldOrderData),
+      JSON.stringify(updatedOrder[0]),
+      changes.length > 0 ? `Order edited by ${userFullName}: ${changes.join('; ')}` : `Order edited by ${userFullName}`
+    ]);
+
+    res.json({ success: true, message: 'Order updated successfully', order: updatedOrder[0] });
+  } catch (error) {
+    console.error('Edit order error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -643,6 +737,121 @@ app.post('/api/orders/:id/restore', authenticateToken, async (req, res) => {
     res.json({ success: true, message: 'Order restored successfully' });
   } catch (error) {
     console.error('Restore order error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * PUT /api/orders/:id
+ * Edit an order
+ * Requires authentication
+ * URL parameter: id (order ID)
+ */
+app.put('/api/orders/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { order_name, order_notes, department } = req.body;
+    const user = req.user;
+
+    // Validate required fields
+    if (!order_name || !department) {
+      return res.status(400).json({ error: 'Order name and department are required' });
+    }
+
+    // Determine table name based on department
+    const tableName = department.toLowerCase() === 'engineering' ? 'engineering_orders' : 'housekeeping_orders';
+
+    // Check if order exists and belongs to user's hotel
+    const orderCheck = await db.query(`SELECT * FROM ${tableName} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
+    
+    if (orderCheck.length === 0) {
+      return res.status(404).json({ error: 'Order not found or access denied' });
+    }
+
+    const oldOrderData = orderCheck[0];
+
+    // Update the order
+    await db.query(`
+      UPDATE ${tableName} 
+      SET order_name = ?, order_notes = ?
+      WHERE id = ?
+    `, [order_name, order_notes || null, id]);
+
+    // Get updated order data
+    const updatedOrder = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
+
+    // Log the edit
+    const userFullName = user.first_name && user.last_name 
+      ? `${user.first_name} ${user.last_name}` 
+      : user.username;
+    
+    const changes = [];
+    if (oldOrderData.order_name !== order_name) {
+      changes.push(`Order name: "${oldOrderData.order_name}" → "${order_name}"`);
+    }
+    if (oldOrderData.order_notes !== (order_notes || null)) {
+      changes.push(`Notes: "${oldOrderData.order_notes || ''}" → "${order_notes || ''}"`);
+    }
+
+    await db.query(`
+      INSERT INTO order_logs (order_id, order_type, action_type, changed_by, changed_by_name, hotel_code, old_data, new_data, change_description)
+      VALUES (?, ?, 'edited', ?, ?, ?, ?, ?, ?)
+    `, [
+      id,
+      department.toLowerCase() === 'engineering' ? 'engineering' : 'housekeeping',
+      user.id,
+      userFullName,
+      user.hotel_code || user.hotelCode,
+      JSON.stringify(oldOrderData),
+      JSON.stringify(updatedOrder[0]),
+      changes.length > 0 ? `Order edited by ${userFullName}: ${changes.join('; ')}` : `Order edited by ${userFullName}`
+    ]);
+
+    res.json({ success: true, message: 'Order updated successfully', order: updatedOrder[0] });
+  } catch (error) {
+    console.error('Edit order error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/logs
+ * Get order logs (deleted and edited orders)
+ * Requires authentication and manager/admin role
+ */
+app.get('/api/logs', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+
+    // Check if user is manager or admin
+    if (user.role !== 'admin' && user.role !== 'manager') {
+      return res.status(403).json({ error: 'Manager or admin access required' });
+    }
+
+    const { type } = req.query; // 'deleted' or 'edited'
+
+    let query = `
+      SELECT l.*,
+             COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) as changed_by_full_name
+      FROM order_logs l
+      LEFT JOIN users u ON l.changed_by = u.id
+      WHERE l.hotel_code = ?
+    `;
+
+    const params = [user.hotel_code || user.hotelCode];
+
+    if (type) {
+      query += ` AND l.action_type = ?`;
+      params.push(type);
+    }
+
+    query += ` ORDER BY l.created_at DESC`;
+
+    const logs = await db.query(query, params);
+
+    res.json({ logs });
+  } catch (error) {
+    console.error('Get logs error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -138,6 +138,69 @@
                 right: 0;
             }
         }
+        
+        .logs-section {
+            display: none;
+        }
+        
+        .logs-section.active {
+            display: block;
+        }
+        
+        .logs-list {
+            max-height: 60vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .log-item {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid var(--brand-primary);
+            box-shadow: 0 1px 3px var(--shadow-primary);
+        }
+        
+        .log-item.deleted {
+            border-left-color: var(--brand-danger);
+        }
+        
+        .log-item.edited {
+            border-left-color: var(--brand-warning);
+        }
+        
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .log-title {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        
+        .log-meta {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+        
+        .log-description {
+            color: var(--text-tertiary);
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .log-details {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border-primary);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
     </style>
 </head>
 <body>
@@ -174,6 +237,10 @@
                             <button class="settings-item" onclick="toggleLanguage()">
                                 <span class="settings-item-icon" id="languageIcon">🌐</span>
                                 <span id="languageText">Language: <span id="currentLanguage">EN</span></span>
+                            </button>
+                            <button class="settings-item" id="logsMenuItem" onclick="showLogsModal()" style="display: none;">
+                                <span class="settings-item-icon">📋</span>
+                                <span>Logs</span>
                             </button>
                             <button class="settings-item" onclick="toggleDarkMode()">
                                 <span class="settings-item-icon" id="themeIcon">🌙</span>
@@ -284,6 +351,71 @@
                 <button id="cancelDeleteBtn" class="btn btn-secondary">Cancel</button>
                 <button id="confirmDeleteBtn" class="btn btn-danger">Delete Order</button>
             </div>
+        </div>
+    </div>
+
+    <!-- ============================================================================
+         LOGS MODAL SECTION
+         ============================================================================ -->
+    <div id="logsModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px; max-height: 90vh;">
+            <div class="modal-header">
+                <h2>📋 Order Logs</h2>
+                <button id="closeLogsModalBtn" class="close-btn">&times;</button>
+            </div>
+            
+            <!-- Logs tabs -->
+            <div class="tab-buttons" style="margin-bottom: 20px;">
+                <button class="tab-btn active" data-tab="deleted" onclick="switchLogsTab('deleted')">🗑️ Deleted Orders</button>
+                <button class="tab-btn" data-tab="edited" onclick="switchLogsTab('edited')">✏️ Edited Orders</button>
+            </div>
+            
+            <!-- Logs content -->
+            <div id="logsContent">
+                <div id="deletedLogs" class="logs-section active">
+                    <div id="deletedLogsList" class="logs-list"></div>
+                </div>
+                <div id="editedLogs" class="logs-section" style="display: none;">
+                    <div id="editedLogsList" class="logs-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================================
+         EDIT ORDER MODAL SECTION
+         ============================================================================ -->
+    <div id="editOrderModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ Edit Order</h2>
+                <button id="closeEditModalBtn" class="close-btn">&times;</button>
+            </div>
+            
+            <form id="editOrderForm" class="modal-form">
+                <div class="form-group">
+                    <label for="editOrderRoomNumber">Room Number *</label>
+                    <input type="text" id="editOrderRoomNumber" name="roomNumber" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editOrderDepartment">Department *</label>
+                    <select id="editOrderDepartment" name="department" required>
+                        <option value="Engineering">Engineering</option>
+                        <option value="Housekeeping">Housekeeping</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="editOrderNotes">Notes</label>
+                    <textarea id="editOrderNotes" name="notes" rows="3" placeholder="Type your notes here..."></textarea>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" id="cancelEditBtn" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
 
