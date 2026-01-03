@@ -35,7 +35,7 @@ const holdOrderDayModal = document.getElementById('holdOrderDayModal');
 const closeHoldDayModalBtn = document.getElementById('closeHoldDayModalBtn');
 const holdSameDayBtn = document.getElementById('holdSameDayBtn');
 const holdNextDayBtn = document.getElementById('holdNextDayBtn');
-const holdReasonInput = document.getElementById('holdReasonInput');
+const holdReasonInput = document.getElementById('holdReasonInput'); // textarea element
 
 const holdOrderTimeModal = document.getElementById('holdOrderTimeModal');
 const closeHoldTimeModalBtn = document.getElementById('closeHoldTimeModalBtn');
@@ -173,7 +173,10 @@ function setupEventListeners() {
     
     if (holdSameDayBtn) {
         holdSameDayBtn.addEventListener('click', () => {
-            if (!holdReasonInput || !holdReasonInput.value.trim()) {
+            const reasonValue = holdReasonInput ? holdReasonInput.value.trim() : '';
+            console.log('Same Day clicked, holdReasonInput exists:', !!holdReasonInput, 'value:', reasonValue);
+            
+            if (!reasonValue) {
                 alert('Please enter a reason for holding this order.');
                 return;
             }
@@ -185,7 +188,10 @@ function setupEventListeners() {
     
     if (holdNextDayBtn) {
         holdNextDayBtn.addEventListener('click', () => {
-            if (!holdReasonInput || !holdReasonInput.value.trim()) {
+            const reasonValue = holdReasonInput ? holdReasonInput.value.trim() : '';
+            console.log('Next Day clicked, holdReasonInput exists:', !!holdReasonInput, 'value:', reasonValue);
+            
+            if (!reasonValue) {
                 alert('Please enter a reason for holding this order.');
                 return;
             }
@@ -231,11 +237,38 @@ function setupEventListeners() {
         confirmDeleteBtn.addEventListener('click', confirmDeleteOrder);
     }
     
-    // Quick suggestion buttons for deletion reason
-    document.querySelectorAll('.quick-suggestion-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            deletionReasonInput.value = e.target.dataset.reason;
-        });
+    // Quick suggestion buttons using event delegation
+    document.addEventListener('click', (e) => {
+        if (e.target.classList.contains('quick-suggestion-btn')) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const reason = e.target.dataset.reason;
+            const time = e.target.dataset.time;
+            
+            console.log('Quick suggestion clicked:', { reason, time });
+            
+            if (reason) {
+                // This is a hold reason button
+                if (holdReasonInput) {
+                    holdReasonInput.value = reason;
+                    console.log('Hold reason set to:', reason);
+                }
+            } else if (time) {
+                // This is a time frame button
+                if (holdTimeFrameInput && holdTimeFrameInput.value !== undefined) {
+                    holdTimeFrameInput.value = time;
+                    console.log('Time frame set to:', time);
+                }
+            } else {
+                // This is a deletion reason button (no data-reason attribute on deletion)
+                if (deletionReasonInput && e.target.closest('.delete-confirm-modal')) {
+                    const text = e.target.textContent.trim();
+                    deletionReasonInput.value = text;
+                    console.log('Deletion reason set to:', text);
+                }
+            }
+        }
     });
     
     // Dark mode toggle
@@ -265,9 +298,8 @@ function showHoldOrderDayModal(orderId) {
 // Hide hold order day selection modal
 function hideHoldOrderDayModal() {
     holdOrderDayModal.style.display = 'none';
-    if (holdReasonInput && holdReasonInput.value !== undefined) {
-        holdReasonInput.value = '';
-    }
+    // Don't clear holdReasonInput here - it's still needed for the actual hold confirmation!
+    // It will be cleared in hideHoldOrderTimeModal after the hold is complete
     // Don't clear holdOrderDay here - it's still needed!
     // It will be cleared in hideHoldOrderTimeModal after completing the hold
 }
@@ -306,7 +338,10 @@ async function confirmHoldOrder() {
     }
     
     const holdReason = holdReasonInput ? holdReasonInput.value.trim() : '';
+    console.log('Hold reason check - holdReasonInput exists:', !!holdReasonInput, 'value:', holdReason, 'length:', holdReason.length);
+    
     if (!holdReason) {
+        console.error('Hold reason is empty or undefined');
         alert('Please enter a reason for holding this order.');
         return;
     }
