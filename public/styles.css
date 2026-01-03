@@ -535,6 +535,100 @@ body {
    ERROR MESSAGE STYLES
    ============================================================================ */
 
+/* =========================
+   LOGS UI STYLES
+========================= */
+
+.logs-modal {
+    width: 700px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.logs-filters {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+}
+
+.logs-filters select,
+.logs-filters input {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+.logs-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.logs-tab {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    cursor: pointer;
+    border-radius: 6px;
+    background: #f0f0f0;
+    font-weight: 500;
+}
+
+.logs-tab.active {
+    background: #2563eb;
+    color: #fff;
+}
+
+.logs-content {
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.log-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: #fff;
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.log-body p {
+    margin: 3px 0;
+    font-size: 14px;
+}
+
+.log-changes {
+    margin-top: 6px;
+    font-size: 13px;
+}
+
+.log-changes .old {
+    color: #dc2626;
+    text-decoration: line-through;
+}
+
+.log-changes .new {
+    color: #16a34a;
+    font-weight: 600;
+}
+
+.loading,
+.empty,
+.error {
+    text-align: center;
+    color: #6b7280;
+    padding: 15px;
+}
+
+
 /* Error message container styling */
 .error-message {
     background-color: var(--error-bg);
