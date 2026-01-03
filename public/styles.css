@@ -515,7 +515,8 @@ body {
     box-shadow: 0 4px 8px var(--shadow-primary);
 }
 
-/* Delete button with smaller padding for compact appearance */
+/* Delete and edit buttons with smaller padding for compact appearance */
+.edit-btn,
 .delete-btn {
     padding: 0.5rem 0.75rem;
     font-size: 0.875rem;
