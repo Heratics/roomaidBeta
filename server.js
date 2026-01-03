@@ -644,17 +644,17 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/orders/deleted
- * Retrieve soft-deleted orders for audit purposes (admin only)
- * Requires authentication and admin role
+ * Retrieve soft-deleted orders for audit purposes (admin/supervisor only)
+ * Requires authentication and admin or supervisor role
  */
 app.get('/api/orders/deleted', authenticateToken, async (req, res) => {
   try {
     const { department } = req.query;
     const user = req.user;
 
-    // Check if user is admin
-    if (user.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
+    // Check if user is admin or supervisor
+    if (user.role !== 'admin' && user.role !== 'supervisor') {
+      return res.status(403).json({ error: 'Admin or supervisor access required' });
     }
 
     // Validate required department parameter
@@ -695,17 +695,17 @@ app.get('/api/orders/deleted', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/orders/:id/restore
- * Restore a soft-deleted order (admin only)
- * Requires authentication and admin role
+ * Restore a soft-deleted order (admin/supervisor only)
+ * Requires authentication and admin or supervisor role
  */
 app.post('/api/orders/:id/restore', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const user = req.user;
 
-    // Check if user is admin
-    if (user.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
+    // Check if user is admin or supervisor
+    if (user.role !== 'admin' && user.role !== 'supervisor') {
+      return res.status(403).json({ error: 'Admin or supervisor access required' });
     }
 
     // First, find which table the order is in and verify it belongs to user's hotel and is deleted
@@ -821,15 +821,15 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
 /**
  * GET /api/logs
  * Get order logs (deleted and edited orders)
- * Requires authentication and manager/admin role
+ * Requires authentication and manager/admin/supervisor role
  * Query parameters: type (optional), date (optional)
  */
 app.get('/api/logs', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
 
-    // Check if user is manager or admin
-    if (user.role !== 'admin' && user.role !== 'manager') {
+    // Check if user is admin, manager, or supervisor
+    if (user.role !== 'admin' && user.role !== 'manager' && user.role !== 'supervisor') {
       return res.status(403).json({ error: 'Manager or admin access required' });
     }
 
