@@ -250,8 +250,9 @@ function hideLoginForm() {
                             <label for="role">Role:</label>
                             <select id="role" name="role" required>
                                 <option value="employee">Employee</option>
-                                <option value="admin">Admin</option>
+                                <option value="supervisor">Supervisor</option>
                                 <option value="manager">Manager</option>
+                                <option value="admin">Admin</option>
                             </select>
                         </div>
                         
