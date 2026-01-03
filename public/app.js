@@ -4,7 +4,8 @@ let currentToken = null;
 let currentDepartment = 'Engineering';
 let currentDateFilter = null;
 let autoRefreshInterval = null;
-const AUTO_REFRESH_INTERVAL = 10000; // Refresh every 10 seconds
+let isLoadingOrders = false; // prevent overlapping fetches
+const AUTO_REFRESH_INTERVAL = 3000; // Refresh every 3 seconds
 
 // DOM elements
 const dashboardScreen = document.getElementById('dashboardScreen');
@@ -576,6 +577,11 @@ function showDashboard() {
 
 // Load orders for current department
 async function loadOrders() {
+    if (isLoadingOrders) {
+        console.log('loadOrders skipped: already in progress');
+        return;
+    }
+    isLoadingOrders = true;
     try {
         console.log('Loading orders for department:', currentDepartment, 'date filter:', currentDateFilter);
         console.log('Current token:', currentToken ? 'Present' : 'Missing');
@@ -606,6 +612,8 @@ async function loadOrders() {
     } catch (error) {
         console.error('Error loading orders:', error);
         displayOrders([]);
+    } finally {
+        isLoadingOrders = false;
     }
 }
 
