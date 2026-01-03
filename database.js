@@ -91,7 +91,7 @@ class Database {
           id INT AUTO_INCREMENT PRIMARY KEY,
           order_id INT NOT NULL,
           order_type ENUM('engineering', 'housekeeping') NOT NULL,
-          action_type ENUM('deleted', 'edited', 'restored') NOT NULL,
+          action_type ENUM('deleted', 'edited', 'restored', 'hold') NOT NULL,
           changed_by INT NOT NULL,
           changed_by_name VARCHAR(200),
           hotel_code VARCHAR(50) NOT NULL,
@@ -102,6 +102,22 @@ class Database {
           FOREIGN KEY (changed_by) REFERENCES users(id)
         )
       `);
+
+      // Add hold columns to engineering_orders if they don't exist
+      await this.pool.query(`
+        ALTER TABLE engineering_orders
+        ADD COLUMN IF NOT EXISTS on_hold BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS hold_info VARCHAR(255) NULL,
+        ADD COLUMN IF NOT EXISTS hold_until DATETIME NULL
+      `).catch(() => {}); // Ignore error if columns already exist
+
+      // Add hold columns to housekeeping_orders if they don't exist
+      await this.pool.query(`
+        ALTER TABLE housekeeping_orders
+        ADD COLUMN IF NOT EXISTS on_hold BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS hold_info VARCHAR(255) NULL,
+        ADD COLUMN IF NOT EXISTS hold_until DATETIME NULL
+      `).catch(() => {}); // Ignore error if columns already exist
 
       console.log('✅ Database tables created/verified');
     } catch (error) {

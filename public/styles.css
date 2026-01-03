@@ -812,6 +812,75 @@ body {
     align-items: center;
 }
 
+/* Order menu (burger menu) */
+.order-menu-container {
+    position: relative;
+}
+
+.order-menu-btn {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+}
+
+.order-menu-btn:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--brand-primary);
+}
+
+.order-menu-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 0.25rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px var(--shadow-primary);
+    min-width: 150px;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.order-menu-dropdown.show {
+    display: block;
+}
+
+.order-menu-dropdown .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: background 0.2s ease;
+}
+
+.order-menu-dropdown .menu-item:last-child {
+    border-bottom: none;
+}
+
+.order-menu-dropdown .menu-item:hover {
+    background: var(--bg-secondary);
+}
+
+.order-menu-dropdown .delete-btn:hover {
+    background: rgba(220, 53, 69, 0.1);
+    color: var(--brand-danger);
+}
+
 /* Order title styling */
 .order-title {
     font-size: 1.25rem;
@@ -839,6 +908,17 @@ body {
     font-size: 0.875rem;
     color: var(--brand-secondary);
     font-weight: 500;
+}
+
+/* Order hold status styling */
+.order-hold {
+    font-size: 0.875rem;
+    color: #ff9800;
+    font-weight: 500;
+    background: rgba(255, 152, 0, 0.1);
+    padding: 0.5rem;
+    border-radius: 4px;
+    margin-top: 0.5rem;
 }
 
 /* Empty state styling when no orders exist */

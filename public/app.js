@@ -30,6 +30,21 @@ const closeDeleteModalBtn = document.getElementById('closeDeleteModalBtn');
 const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 
+// Hold order modal elements
+const holdOrderDayModal = document.getElementById('holdOrderDayModal');
+const closeHoldDayModalBtn = document.getElementById('closeHoldDayModalBtn');
+const holdSameDayBtn = document.getElementById('holdSameDayBtn');
+const holdNextDayBtn = document.getElementById('holdNextDayBtn');
+
+const holdOrderTimeModal = document.getElementById('holdOrderTimeModal');
+const closeHoldTimeModalBtn = document.getElementById('closeHoldTimeModalBtn');
+const holdTimeFrameInput = document.getElementById('holdTimeFrameInput');
+const cancelHoldTimeBtn = document.getElementById('cancelHoldTimeBtn');
+const confirmHoldTimeBtn = document.getElementById('confirmHoldTimeBtn');
+
+let orderToHold = null;
+let holdOrderDay = null;
+
 // Logs modal elements
 const logsModal = document.getElementById('logsModal');
 const closeLogsModalBtn = document.getElementById('closeLogsModalBtn');
@@ -150,6 +165,45 @@ function setupEventListeners() {
         });
     }
     
+    // Hold order modals
+    if (closeHoldDayModalBtn) {
+        closeHoldDayModalBtn.addEventListener('click', hideHoldOrderDayModal);
+    }
+    
+    if (holdSameDayBtn) {
+        holdSameDayBtn.addEventListener('click', () => {
+            holdOrderDay = 'same-day';
+            hideHoldOrderDayModal();
+            showHoldOrderTimeModal();
+        });
+    }
+    
+    if (holdNextDayBtn) {
+        holdNextDayBtn.addEventListener('click', () => {
+            holdOrderDay = 'next-day';
+            confirmHoldOrder();
+        });
+    }
+    
+    if (closeHoldTimeModalBtn) {
+        closeHoldTimeModalBtn.addEventListener('click', hideHoldOrderTimeModal);
+    }
+    
+    if (cancelHoldTimeBtn) {
+        cancelHoldTimeBtn.addEventListener('click', hideHoldOrderTimeModal);
+    }
+    
+    if (confirmHoldTimeBtn) {
+        confirmHoldTimeBtn.addEventListener('click', confirmHoldOrder);
+    }
+    
+    // Quick time suggestions for hold order
+    document.querySelectorAll('.quick-suggestion-btn[data-time]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            holdTimeFrameInput.value = e.target.dataset.time;
+        });
+    });
+    
     // Edit order modal
     if (closeEditModalBtn) {
         closeEditModalBtn.addEventListener('click', hideEditOrderModal);
@@ -177,6 +231,87 @@ function setupEventListeners() {
     // Dark mode toggle
     
     // Language toggle is now in settings menu
+    
+    // Close burger menus when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.order-menu-container')) {
+            document.querySelectorAll('.order-menu-dropdown.show').forEach(dropdown => {
+                dropdown.classList.remove('show');
+            });
+        }
+    });
+}
+
+// ============================================================================
+// HOLD ORDER FUNCTIONS
+// ============================================================================
+
+// Show hold order day selection modal
+function showHoldOrderDayModal(orderId) {
+    orderToHold = orderId;
+    holdOrderDayModal.style.display = 'flex';
+}
+
+// Hide hold order day selection modal
+function hideHoldOrderDayModal() {
+    holdOrderDayModal.style.display = 'none';
+    orderToHold = null;
+    holdOrderDay = null;
+}
+
+// Show hold order time frame modal
+function showHoldOrderTimeModal() {
+    holdOrderTimeModal.style.display = 'flex';
+}
+
+// Hide hold order time frame modal
+function hideHoldOrderTimeModal() {
+    holdOrderTimeModal.style.display = 'none';
+    holdTimeFrameInput.value = '';
+}
+
+// Confirm hold order
+async function confirmHoldOrder() {
+    if (!orderToHold) {
+        return;
+    }
+    
+    const holdData = {
+        day: holdOrderDay,
+        timeFrame: holdOrderDay === 'same-day' ? holdTimeFrameInput.value : null
+    };
+    
+    // Validate time frame for same-day holds
+    if (holdOrderDay === 'same-day' && !holdData.timeFrame) {
+        alert('Please enter a time frame for the hold.');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/orders/${orderToHold}/hold`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${currentToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(holdData)
+        });
+        
+        if (response.ok) {
+            hideHoldOrderDayModal();
+            hideHoldOrderTimeModal();
+            // Small delay to ensure server has processed the hold
+            setTimeout(() => {
+                loadOrders(); // Reload orders to show updated status
+            }, 500);
+        } else {
+            console.error('Failed to hold order');
+            alert('Failed to hold order. Please try again.');
+        }
+    } catch (error) {
+        console.error('Error holding order:', error);
+        alert('Error holding order. Please try again.');
+    }
 }
 
 
@@ -389,8 +524,14 @@ function createOrderCard(order) {
             <div class="order-actions">
                 ${!isCompleted && !isReceived ? `<button class="btn btn-primary receive-btn" data-order-id="${escapeHtml(order.id)}">Receive</button>` : ''}
                 ${isReceived && !isCompleted ? `<button class="btn btn-success complete-btn" data-order-id="${escapeHtml(order.id)}">Complete</button>` : ''}
-                <button class="btn btn-secondary edit-btn" data-order-id="${escapeHtml(order.id)}" title="Edit Order">✏️</button>
-                <button class="btn btn-danger delete-btn" data-order-id="${escapeHtml(order.id)}">🗑</button>
+                <div class="order-menu-container">
+                    <button class="order-menu-btn" data-order-id="${escapeHtml(order.id)}" title="More Options">⋮</button>
+                    <div class="order-menu-dropdown">
+                        <button class="menu-item edit-btn" data-order-id="${escapeHtml(order.id)}">✏️ Edit</button>
+                        <button class="menu-item hold-btn" data-order-id="${escapeHtml(order.id)}">⏸️ Hold</button>
+                        <button class="menu-item delete-btn" data-order-id="${escapeHtml(order.id)}">🗑️ Delete</button>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -401,7 +542,13 @@ function createOrderCard(order) {
         
         ${orderNotes ? `<div class="order-notes" data-notes="${escapeHtml(order.order_notes)}">${orderNotes}</div>` : ''}
         
-        ${isReceived ? `
+        ${order.on_hold ? `
+            <div class="order-hold">
+                ⏸️ ${escapeHtml(order.hold_info || 'On Hold')}
+            </div>
+        ` : ''}
+        
+        ${isReceived && !order.on_hold ? `
             <div class="order-received">
                 🔄 In Progress - Assigned to ${receiverName}
             </div>
@@ -428,10 +575,36 @@ function createOrderCard(order) {
         completeBtn.addEventListener('click', () => completeOrder(order.id));
     }
     
+    // Burger menu functionality
+    const menuBtn = card.querySelector('.order-menu-btn');
+    const menuDropdown = card.querySelector('.order-menu-dropdown');
+    
+    if (menuBtn && menuDropdown) {
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Close all other open menus
+            document.querySelectorAll('.order-menu-dropdown.show').forEach(dropdown => {
+                if (dropdown !== menuDropdown) {
+                    dropdown.classList.remove('show');
+                }
+            });
+            menuDropdown.classList.toggle('show');
+        });
+    }
+    
     const editBtn = card.querySelector('.edit-btn');
     if (editBtn) {
         editBtn.addEventListener('click', () => {
             showEditOrderModal(order);
+            menuDropdown?.classList.remove('show');
+        });
+    }
+    
+    const holdBtn = card.querySelector('.hold-btn');
+    if (holdBtn) {
+        holdBtn.addEventListener('click', () => {
+            showHoldOrderDayModal(order.id);
+            menuDropdown?.classList.remove('show');
         });
     }
     
@@ -439,6 +612,7 @@ function createOrderCard(order) {
     if (deleteBtn) {
         deleteBtn.addEventListener('click', () => {
             deleteOrder(order.id);
+            menuDropdown?.classList.remove('show');
         });
     }
     
@@ -974,17 +1148,25 @@ function switchLogsTab(tab) {
     // Show/hide sections
     const deletedSection = document.getElementById('deletedLogs');
     const editedSection = document.getElementById('editedLogs');
+    const holdSection = document.getElementById('holdLogs');
     const logsDateFilter = document.getElementById('logsDateFilter');
     const filterDate = logsDateFilter ? logsDateFilter.value : null;
     
     if (tab === 'deleted') {
         if (deletedSection) deletedSection.style.display = 'block';
         if (editedSection) editedSection.style.display = 'none';
+        if (holdSection) holdSection.style.display = 'none';
         loadLogs('deleted', filterDate);
-    } else {
+    } else if (tab === 'edited') {
         if (deletedSection) deletedSection.style.display = 'none';
         if (editedSection) editedSection.style.display = 'block';
+        if (holdSection) holdSection.style.display = 'none';
         loadLogs('edited', filterDate);
+    } else if (tab === 'hold') {
+        if (deletedSection) deletedSection.style.display = 'none';
+        if (editedSection) editedSection.style.display = 'none';
+        if (holdSection) holdSection.style.display = 'block';
+        loadLogs('hold', filterDate);
     }
 }
 
@@ -1016,7 +1198,7 @@ async function loadLogs(type, filterDate = null) {
 
 // Display logs
 function displayLogs(logs, type) {
-    const listId = type === 'deleted' ? 'deletedLogsList' : 'editedLogsList';
+    const listId = type === 'deleted' ? 'deletedLogsList' : type === 'edited' ? 'editedLogsList' : 'holdLogsList';
     const listElement = document.getElementById(listId);
     
     if (!listElement) return;

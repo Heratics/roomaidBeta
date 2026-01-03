@@ -570,6 +570,101 @@ app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
 });
 
 /**
+ * POST /api/orders/:id/hold
+ * Put an order on hold
+ * Requires authentication
+ * URL parameter: id (order ID)
+ * Body: { day, timeFrame }
+ */
+app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { day, timeFrame } = req.body;
+    const user = req.user;
+
+    // Convert id to integer for database query
+    const orderId = parseInt(id);
+    if (isNaN(orderId)) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
+
+    console.log('Hold order request:', { id: orderId, day, timeFrame, user: user.id, hotel_code: user.hotel_code || user.hotelCode });
+
+    // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
+    let tableName = null;
+    let orderFound = false;
+
+    // Check engineering_orders first
+    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [orderId, user.hotel_code || user.hotelCode]);
+    if (checkResult.length > 0) {
+      tableName = 'engineering_orders';
+      orderFound = true;
+    } else {
+      // Check housekeeping_orders
+      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [orderId, user.hotel_code || user.hotelCode]);
+      if (checkResult.length > 0) {
+        tableName = 'housekeeping_orders';
+        orderFound = true;
+      }
+    }
+
+    if (!orderFound) {
+      return res.status(404).json({ error: 'Order not found or access denied' });
+    }
+
+    // Prepare hold information
+    const holdInfo = day === 'same-day' ? `On hold - Same day (${timeFrame})` : 'On hold - Next day';
+    const holdUntil = day === 'next-day' ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null; // Next day timestamp
+
+    // Update order to mark as on hold
+    await db.query(`
+      UPDATE ${tableName} 
+      SET on_hold = ?, hold_info = ?, hold_until = ?
+      WHERE id = ?
+    `, [true, holdInfo, holdUntil, orderId]);
+
+    // Log the hold action
+    const userFullName = user.first_name && user.last_name 
+      ? `${user.first_name} ${user.last_name}` 
+      : user.username;
+    
+    await db.query(`
+      INSERT INTO order_logs (order_id, order_type, action_type, changed_by, changed_by_name, hotel_code, change_description)
+      VALUES (?, ?, 'hold', ?, ?, ?, ?)
+    `, [
+      orderId,
+      tableName === 'engineering_orders' ? 'engineering' : 'housekeeping',
+      user.id,
+      userFullName,
+      user.hotel_code || user.hotelCode,
+      `Order put on hold by ${userFullName}: ${holdInfo}`
+    ]);
+
+    // Fetch the updated order
+    const orders = await db.query(`
+      SELECT o.*, 
+             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+             creator.username as creatorUsername,
+             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
+             assignee.username as receiverUsername
+      FROM ${tableName} o
+      LEFT JOIN users creator ON o.sent_by = creator.id
+      LEFT JOIN users assignee ON o.assigned_to = assignee.id
+      WHERE o.id = ?
+    `, [orderId]);
+
+    if (orders.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    res.json({ order: orders[0] });
+  } catch (error) {
+    console.error('Hold order error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+/**
  * PUT /api/orders/:id
  * Edit an order
  * Requires authentication

@@ -365,6 +365,61 @@
     </div>
 
     <!-- ============================================================================
+         HOLD ORDER MODALS SECTION
+         ============================================================================ -->
+    
+    <!-- Hold Order Day Selection Modal -->
+    <div id="holdOrderDayModal" class="modal" style="display: none;">
+        <div class="modal-content delete-confirm-modal">
+            <div class="modal-header">
+                <h2>⏸️ Hold Order</h2>
+                <button id="closeHoldDayModalBtn" class="close-btn">&times;</button>
+            </div>
+            
+            <div class="delete-confirm-content">
+                <h3>When will this order be delayed until?</h3>
+                <p>Select if the order is being held for same day or next day delivery.</p>
+            </div>
+            
+            <div class="modal-actions">
+                <button id="holdSameDayBtn" class="btn btn-primary">Same Day</button>
+                <button id="holdNextDayBtn" class="btn btn-secondary">Next Day</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hold Order Time Frame Modal -->
+    <div id="holdOrderTimeModal" class="modal" style="display: none;">
+        <div class="modal-content delete-confirm-modal">
+            <div class="modal-header">
+                <h2>⏸️ Hold Order - Time Frame</h2>
+                <button id="closeHoldTimeModalBtn" class="close-btn">&times;</button>
+            </div>
+            
+            <div class="delete-confirm-content">
+                <h3>How long should the order be on hold?</h3>
+                <p>Enter the time frame (e.g., "1 hour", "30 mins", "4 hours")</p>
+                
+                <div class="deletion-reason-section">
+                    <label for="holdTimeFrameInput">Time Frame:</label>
+                    <input type="text" id="holdTimeFrameInput" class="deletion-reason-input" placeholder="e.g., 1 hour, 30 mins, 4 hours" style="min-height: 50px;">
+                    <div class="quick-suggestions">
+                        <button type="button" class="quick-suggestion-btn" data-time="30 mins">30 mins</button>
+                        <button type="button" class="quick-suggestion-btn" data-time="1 hour">1 hour</button>
+                        <button type="button" class="quick-suggestion-btn" data-time="2 hours">2 hours</button>
+                        <button type="button" class="quick-suggestion-btn" data-time="4 hours">4 hours</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button id="cancelHoldTimeBtn" class="btn btn-secondary">Cancel</button>
+                <button id="confirmHoldTimeBtn" class="btn btn-primary">Confirm Hold</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================================
          LOGS MODAL SECTION
          ============================================================================ -->
     <div id="logsModal" class="modal" style="display: none;">
@@ -379,6 +434,7 @@
                 <div>
                     <button class="tab-btn active" data-tab="deleted" onclick="switchLogsTab('deleted')">🗑️ Deleted Orders</button>
                     <button class="tab-btn" data-tab="edited" onclick="switchLogsTab('edited')">✏️ Edited Orders</button>
+                    <button class="tab-btn" data-tab="hold" onclick="switchLogsTab('hold')">⏸️ Hold Orders</button>
                 </div>
                 <div class="logs-filter">
                     <label for="logsDateFilter">Filter by Date:</label>
@@ -394,6 +450,9 @@
                 </div>
                 <div id="editedLogs" class="logs-section" style="display: none;">
                     <div id="editedLogsList" class="logs-list"></div>
+                </div>
+                <div id="holdLogs" class="logs-section" style="display: none;">
+                    <div id="holdLogsList" class="logs-list"></div>
                 </div>
             </div>
         </div>
