@@ -410,11 +410,13 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
  * Delete an order
  * Requires authentication
  * URL parameter: id (order ID)
+ * Optional body field: deletionReason
  */
 app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
   try {
-    // Extract order ID from URL parameters
+    // Extract order ID from URL parameters and deletion reason from request body
     const { id } = req.params;
+    const { deletionReason } = req.body;
     const user = req.user;
 
     // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
@@ -454,6 +456,8 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
       ? `${user.first_name} ${user.last_name}` 
       : user.username;
     
+    const reasonText = deletionReason ? ` - Reason: ${deletionReason}` : '';
+    
     await db.query(`
       INSERT INTO order_logs (order_id, order_type, action_type, changed_by, changed_by_name, hotel_code, old_data, change_description)
       VALUES (?, ?, 'deleted', ?, ?, ?, ?, ?)
@@ -464,7 +468,7 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
       userFullName,
       user.hotel_code || user.hotelCode,
       JSON.stringify(orderData[0]),
-      `Order deleted by ${userFullName}`
+      `Order deleted by ${userFullName}${reasonText}`
     ]);
 
     // Return success response

@@ -1072,6 +1072,61 @@ body {
     min-width: 120px;
 }
 
+/* Deletion reason section */
+.deletion-reason-section {
+    margin-top: 1.5rem;
+    text-align: left;
+}
+
+.deletion-reason-section label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.deletion-reason-input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    box-sizing: border-box;
+}
+
+.deletion-reason-input:focus {
+    outline: none;
+    border-color: var(--brand-primary);
+}
+
+.quick-suggestions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.quick-suggestion-btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quick-suggestion-btn:hover {
+    background: var(--brand-primary);
+    color: white;
+    border-color: var(--brand-primary);
+}
+
 /* ============================================================================
    SCROLLBAR STYLING
    ============================================================================ */

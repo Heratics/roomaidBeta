@@ -344,6 +344,16 @@
                 <div class="warning-icon">⚠️</div>
                 <h3>Are you sure?</h3>
                 <p>This action cannot be undone. The order will be permanently deleted.</p>
+                
+                <!-- Deletion reason input -->
+                <div class="deletion-reason-section">
+                    <label for="deletionReasonInput">Why are you deleting this order?</label>
+                    <textarea id="deletionReasonInput" class="deletion-reason-input" placeholder="Enter reason here..."></textarea>
+                    <div class="quick-suggestions">
+                        <button type="button" class="quick-suggestion-btn" data-reason="Guest canceled">Guest canceled</button>
+                        <button type="button" class="quick-suggestion-btn" data-reason="Duplicate order">Duplicate order</button>
+                    </div>
+                </div>
             </div>
             
             <!-- Confirmation action buttons -->

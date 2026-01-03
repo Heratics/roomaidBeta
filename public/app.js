@@ -148,6 +148,13 @@ function setupEventListeners() {
         confirmDeleteBtn.addEventListener('click', confirmDeleteOrder);
     }
     
+    // Quick suggestion buttons for deletion reason
+    document.querySelectorAll('.quick-suggestion-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            deletionReasonInput.value = e.target.dataset.reason;
+        });
+    });
+    
     // Dark mode toggle
     
     // Language toggle is now in settings menu
@@ -485,6 +492,7 @@ function showDeleteConfirmModal(orderId) {
 function hideDeleteConfirmModal() {
     deleteConfirmModal.style.display = 'none';
     orderToDelete = null;
+    deletionReasonInput.value = '';
 }
 
 // Confirm delete order
@@ -497,8 +505,12 @@ async function confirmDeleteOrder() {
         const response = await fetch(`/api/orders/${orderToDelete}`, {
             method: 'DELETE',
             headers: {
-                'Authorization': `Bearer ${currentToken}`
-            }
+                'Authorization': `Bearer ${currentToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                deletionReason: deletionReasonInput.value || 'No reason provided'
+            })
         });
         
         if (response.ok) {
