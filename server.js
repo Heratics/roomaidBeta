@@ -585,10 +585,17 @@ app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
     // Convert id to integer for database query
     const orderId = parseInt(id);
     if (isNaN(orderId)) {
+      console.error('Invalid order ID:', id);
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
     console.log('Hold order request:', { id: orderId, day, timeFrame, user: user.id, hotel_code: user.hotel_code || user.hotelCode });
+
+    // Validate day parameter
+    if (!day || (day !== 'same-day' && day !== 'next-day')) {
+      console.error('Invalid day parameter:', day);
+      return res.status(400).json({ error: 'Invalid day parameter. Must be "same-day" or "next-day"' });
+    }
 
     // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
     let tableName = null;
@@ -654,12 +661,15 @@ app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
     `, [orderId]);
 
     if (orders.length === 0) {
+      console.error('Order not found after update:', orderId);
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    res.json({ order: orders[0] });
+    console.log('Order held successfully:', orders[0]);
+    res.json({ success: true, order: orders[0] });
   } catch (error) {
     console.error('Hold order error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 });

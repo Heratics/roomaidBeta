@@ -104,20 +104,30 @@ class Database {
       `);
 
       // Add hold columns to engineering_orders if they don't exist
-      await this.pool.query(`
-        ALTER TABLE engineering_orders
-        ADD COLUMN IF NOT EXISTS on_hold BOOLEAN DEFAULT FALSE,
-        ADD COLUMN IF NOT EXISTS hold_info VARCHAR(255) NULL,
-        ADD COLUMN IF NOT EXISTS hold_until DATETIME NULL
-      `).catch(() => {}); // Ignore error if columns already exist
+      try {
+        await this.pool.query(`
+          ALTER TABLE engineering_orders
+          ADD COLUMN on_hold BOOLEAN DEFAULT FALSE,
+          ADD COLUMN hold_info VARCHAR(255) NULL,
+          ADD COLUMN hold_until DATETIME NULL
+        `);
+      } catch (error) {
+        // Columns might already exist, ignore error
+        console.log('Hold columns might already exist in engineering_orders');
+      }
 
       // Add hold columns to housekeeping_orders if they don't exist
-      await this.pool.query(`
-        ALTER TABLE housekeeping_orders
-        ADD COLUMN IF NOT EXISTS on_hold BOOLEAN DEFAULT FALSE,
-        ADD COLUMN IF NOT EXISTS hold_info VARCHAR(255) NULL,
-        ADD COLUMN IF NOT EXISTS hold_until DATETIME NULL
-      `).catch(() => {}); // Ignore error if columns already exist
+      try {
+        await this.pool.query(`
+          ALTER TABLE housekeeping_orders
+          ADD COLUMN on_hold BOOLEAN DEFAULT FALSE,
+          ADD COLUMN hold_info VARCHAR(255) NULL,
+          ADD COLUMN hold_until DATETIME NULL
+        `);
+      } catch (error) {
+        // Columns might already exist, ignore error
+        console.log('Hold columns might already exist in housekeeping_orders');
+      }
 
       console.log('✅ Database tables created/verified');
     } catch (error) {

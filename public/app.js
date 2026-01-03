@@ -181,6 +181,7 @@ function setupEventListeners() {
     if (holdNextDayBtn) {
         holdNextDayBtn.addEventListener('click', () => {
             holdOrderDay = 'next-day';
+            hideHoldOrderDayModal();
             confirmHoldOrder();
         });
     }
@@ -273,6 +274,7 @@ function hideHoldOrderTimeModal() {
 // Confirm hold order
 async function confirmHoldOrder() {
     if (!orderToHold) {
+        console.error('No order to hold');
         return;
     }
     
@@ -287,6 +289,8 @@ async function confirmHoldOrder() {
         return;
     }
     
+    console.log('Holding order:', orderToHold, 'with data:', holdData);
+    
     try {
         const response = await fetch(`/api/orders/${orderToHold}/hold`, {
             method: 'POST',
@@ -297,7 +301,11 @@ async function confirmHoldOrder() {
             body: JSON.stringify(holdData)
         });
         
+        console.log('Hold response status:', response.status);
+        
         if (response.ok) {
+            const result = await response.json();
+            console.log('Order held successfully:', result);
             hideHoldOrderDayModal();
             hideHoldOrderTimeModal();
             // Small delay to ensure server has processed the hold
@@ -305,8 +313,9 @@ async function confirmHoldOrder() {
                 loadOrders(); // Reload orders to show updated status
             }, 500);
         } else {
-            console.error('Failed to hold order');
-            alert('Failed to hold order. Please try again.');
+            const errorData = await response.json();
+            console.error('Failed to hold order:', errorData);
+            alert(`Failed to hold order: ${errorData.error || 'Please try again.'}`);
         }
     } catch (error) {
         console.error('Error holding order:', error);
