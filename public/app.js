@@ -999,8 +999,16 @@ function displayLogs(logs, type) {
         const logItem = document.createElement('div');
         logItem.className = `log-item ${type}`;
         
-        const oldData = log.old_data ? JSON.parse(log.old_data) : null;
-        const newData = log.new_data ? JSON.parse(log.new_data) : null;
+        const oldData =
+            typeof log.old_data === 'string'
+                ? JSON.parse(log.old_data)
+                : log.old_data;
+
+        const newData =
+            typeof log.new_data === 'string'
+                ? JSON.parse(log.new_data)
+                : log.new_data;
+
         
         const orderName = oldData?.order_name || newData?.order_name || 'Unknown';
         const roomNumber = orderName.replace('Room ', '');
