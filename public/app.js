@@ -256,8 +256,8 @@ function showHoldOrderDayModal(orderId) {
 // Hide hold order day selection modal
 function hideHoldOrderDayModal() {
     holdOrderDayModal.style.display = 'none';
-    orderToHold = null;
     holdOrderDay = null;
+    // Don't clear orderToHold here - it's needed for confirmHoldOrder
 }
 
 // Show hold order time frame modal
@@ -308,6 +308,8 @@ async function confirmHoldOrder() {
             console.log('Order held successfully:', result);
             hideHoldOrderDayModal();
             hideHoldOrderTimeModal();
+            // Clear the held order
+            orderToHold = null;
             // Small delay to ensure server has processed the hold
             setTimeout(() => {
                 loadOrders(); // Reload orders to show updated status
