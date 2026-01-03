@@ -624,11 +624,19 @@ app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
     const holdUntil = day === 'next-day' ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null; // Next day timestamp
 
     // Update order to mark as on hold
-    await db.query(`
-      UPDATE ${tableName} 
-      SET on_hold = ?, hold_info = ?, hold_until = ?
-      WHERE id = ?
-    `, [true, holdInfo, holdUntil, orderId]);
+    if (tableName === 'engineering_orders') {
+      await db.query(`
+        UPDATE engineering_orders 
+        SET on_hold = ?, hold_info = ?, hold_until = ?
+        WHERE id = ?
+      `, [true, holdInfo, holdUntil, orderId]);
+    } else {
+      await db.query(`
+        UPDATE housekeeping_orders 
+        SET on_hold = ?, hold_info = ?, hold_until = ?
+        WHERE id = ?
+      `, [true, holdInfo, holdUntil, orderId]);
+    }
 
     // Log the hold action
     const userFullName = user.first_name && user.last_name 
@@ -648,17 +656,32 @@ app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
     ]);
 
     // Fetch the updated order
-    const orders = await db.query(`
-      SELECT o.*, 
-             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
-             creator.username as creatorUsername,
-             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
-             assignee.username as receiverUsername
-      FROM ${tableName} o
-      LEFT JOIN users creator ON o.sent_by = creator.id
-      LEFT JOIN users assignee ON o.assigned_to = assignee.id
-      WHERE o.id = ?
-    `, [orderId]);
+    let orders;
+    if (tableName === 'engineering_orders') {
+      orders = await db.query(`
+        SELECT o.*, 
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               creator.username as creatorUsername,
+               COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
+               assignee.username as receiverUsername
+        FROM engineering_orders o
+        LEFT JOIN users creator ON o.sent_by = creator.id
+        LEFT JOIN users assignee ON o.assigned_to = assignee.id
+        WHERE o.id = ?
+      `, [orderId]);
+    } else {
+      orders = await db.query(`
+        SELECT o.*, 
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               creator.username as creatorUsername,
+               COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
+               assignee.username as receiverUsername
+        FROM housekeeping_orders o
+        LEFT JOIN users creator ON o.sent_by = creator.id
+        LEFT JOIN users assignee ON o.assigned_to = assignee.id
+        WHERE o.id = ?
+      `, [orderId]);
+    }
 
     if (orders.length === 0) {
       console.error('Order not found after update:', orderId);
