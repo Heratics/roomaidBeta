@@ -38,12 +38,12 @@ const holdNextDayBtn = document.getElementById('holdNextDayBtn');
 
 const holdOrderTimeModal = document.getElementById('holdOrderTimeModal');
 const closeHoldTimeModalBtn = document.getElementById('closeHoldTimeModalBtn');
-const holdTimeFrameInput = document.getElementById('holdTimeFrameInput');
+const holdTimeFrameInput = document.getElementById('holdTimeFrameInput') || {};
 const cancelHoldTimeBtn = document.getElementById('cancelHoldTimeBtn');
 const confirmHoldTimeBtn = document.getElementById('confirmHoldTimeBtn');
 
 let orderToHold = null;
-let holdOrderDay = null;
+let holdOrderDay = null; // 'same-day' or 'next-day'
 
 // Logs modal elements
 const logsModal = document.getElementById('logsModal');
@@ -256,8 +256,8 @@ function showHoldOrderDayModal(orderId) {
 // Hide hold order day selection modal
 function hideHoldOrderDayModal() {
     holdOrderDayModal.style.display = 'none';
-    holdOrderDay = null;
-    // Don't clear orderToHold here - it's needed for confirmHoldOrder
+    // Don't clear holdOrderDay here - it's still needed!
+    // It will be cleared in hideHoldOrderTimeModal after completing the hold
 }
 
 // Show hold order time frame modal
@@ -268,28 +268,40 @@ function showHoldOrderTimeModal() {
 // Hide hold order time frame modal
 function hideHoldOrderTimeModal() {
     holdOrderTimeModal.style.display = 'none';
-    holdTimeFrameInput.value = '';
+    if (holdTimeFrameInput && holdTimeFrameInput.value !== undefined) {
+        holdTimeFrameInput.value = '';
+    }
+    holdOrderDay = null; // Clear here after the flow is complete
 }
 
 // Confirm hold order
 async function confirmHoldOrder() {
+    console.log('confirmHoldOrder called with:', { orderToHold, holdOrderDay, timeFrame: holdTimeFrameInput.value });
+    
     if (!orderToHold) {
         console.error('No order to hold');
+        alert('No order selected. Please try again.');
+        return;
+    }
+    
+    if (!holdOrderDay) {
+        console.error('No hold day selected');
+        alert('Please select same day or next day.');
         return;
     }
     
     const holdData = {
         day: holdOrderDay,
-        timeFrame: holdOrderDay === 'same-day' ? holdTimeFrameInput.value : null
+        timeFrame: holdOrderDay === 'same-day' ? (holdTimeFrameInput.value || null) : null
     };
+    
+    console.log('Hold data to send:', holdData);
     
     // Validate time frame for same-day holds
     if (holdOrderDay === 'same-day' && !holdData.timeFrame) {
         alert('Please enter a time frame for the hold.');
         return;
     }
-    
-    console.log('Holding order:', orderToHold, 'with data:', holdData);
     
     try {
         const response = await fetch(`/api/orders/${orderToHold}/hold`, {
