@@ -846,6 +846,7 @@ function editUser(userId) {
     document.getElementById('editFirstName').value = user.first_name || '';
     document.getElementById('editLastName').value = user.last_name || '';
     document.getElementById('editUsername').value = user.username || '';
+    document.getElementById('editRole').value = user.role || 'employee';
     document.getElementById('editPassword').value = '';
     
     // Show the modal
@@ -864,6 +865,7 @@ async function handleEditUserSubmit(event) {
     const lastName = document.getElementById('editLastName').value;
     const username = document.getElementById('editUsername').value;
     const password = document.getElementById('editPassword').value;
+    const role = document.getElementById('editRole').value;
     
     if (!firstName || !lastName || !username) {
         showAlert('First name, last name, and username are required', 'error');
@@ -874,7 +876,8 @@ async function handleEditUserSubmit(event) {
         const updateData = {
             firstName,
             lastName,
-            username
+            username,
+            role
         };
         
         // Only include password if it was provided

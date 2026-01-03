@@ -524,7 +524,7 @@
     </div>
     
     <!-- Edit User Modal -->
-    <div id="editUserModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+    <div id="editUserModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
         <div style="background: var(--bg-primary); padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2 style="margin: 0;">Edit User</h2>
@@ -552,6 +552,16 @@
                 <div style="display: flex; flex-direction: column;">
                     <label for="editPassword" style="margin-bottom: 5px; font-weight: 500;">New Password (leave blank to keep current):</label>
                     <input type="password" id="editPassword" name="password" placeholder="Enter new password or leave blank" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary);">
+                </div>
+                
+                <div style="display: flex; flex-direction: column;">
+                    <label for="editRole" style="margin-bottom: 5px; font-weight: 500;">Role:</label>
+                    <select id="editRole" name="role" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary);">
+                        <option value="employee">Employee</option>
+                        <option value="supervisor">Supervisor</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                    </select>
                 </div>
                 
                 <div style="display: flex; gap: 10px; margin-top: 15px;">

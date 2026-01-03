@@ -625,6 +625,7 @@ function createOrderCard(order) {
         ${order.on_hold ? `
             <div class="order-hold">
                 ⏸️ ${escapeHtml(order.hold_info || 'On Hold')}
+                ${order.hold_until ? `<br><small>On hold until: ${new Date(order.hold_until).toLocaleString()}</small>` : ''}
             </div>
         ` : ''}
         

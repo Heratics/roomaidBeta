@@ -1409,7 +1409,7 @@ app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
     const { id } = req.params;
-    const { firstName, lastName, username, password } = req.body;
+    const { firstName, lastName, username, password, role } = req.body;
 
     // Check if user is admin
     if (user.role !== 'admin') {
@@ -1419,6 +1419,11 @@ app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
     // Validate input
     if (!firstName || !lastName || !username) {
       return res.status(400).json({ error: 'First name, last name, and username are required' });
+    }
+
+    // Validate role if provided
+    if (role && !['employee', 'supervisor', 'manager', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
     }
 
     // Check if target user exists
@@ -1450,6 +1455,12 @@ app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
     if (password && password.trim()) {
       updateQuery += `, passwordHash = ?`;
       updateParams.push(password);
+    }
+
+    // Only update role if provided
+    if (role) {
+      updateQuery += `, role = ?`;
+      updateParams.push(role);
     }
 
     updateQuery += ` WHERE id = ?`;
