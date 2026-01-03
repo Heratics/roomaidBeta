@@ -1175,7 +1175,7 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
     }
 
     // Create user with plain text password for now (matching existing system)
-    await db.query(`
+    const result = await db.query(`
       INSERT INTO users (username, passwordHash, hotel_code, role, first_name, last_name, createdAt)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, [
@@ -1188,7 +1188,7 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
       new Date()
     ]);
 
-    const newUserId = result.insertId;
+    const newUserId = result[0].insertId;
 
     res.json({
       success: true,
