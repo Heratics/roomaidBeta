@@ -823,39 +823,36 @@ app.get('/api/logs', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
 
-    // Check if user is manager or admin
     if (user.role !== 'admin' && user.role !== 'manager') {
       return res.status(403).json({ error: 'Manager or admin access required' });
     }
 
-    const { type, userId, date } = req.query; // 'deleted' or 'edited'
+    const { type, userId, date } = req.query;
 
     let query = `
-  SELECT l.*,
-         COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) as changed_by_full_name
-  FROM order_logs l
-  LEFT JOIN users u ON l.changed_by = u.id
-  WHERE l.hotel_code = $1
-`;
+      SELECT l.*,
+             COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) AS changed_by_full_name
+      FROM order_logs l
+      LEFT JOIN users u ON l.changed_by = u.id
+      WHERE l.hotel_code = ?
+    `;
 
-const params = [user.hotel_code || user.hotelCode];
-let index = 2;
+    const params = [user.hotel_code || user.hotelCode];
 
-if (type) {
-  query += ` AND l.log_type = $${index++}`;
-  params.push(type);
-}
+    if (type) {
+      query += ` AND l.action_type = ?`;
+      params.push(type); // 'edited' | 'deleted'
+    }
 
-if (userId) {
-  query += ` AND l.changed_by = $${index++}`;
-  params.push(userId);
-}
+    if (userId) {
+      query += ` AND l.changed_by = ?`;
+      params.push(userId);
+    }
 
-if (date) {
-  query += ` AND DATE(l.created_at) = $${index++}`;
-  params.push(date);
-}
-
+    if (date) {
+      query += ` AND DATE(l.created_at) = ?`;
+      params.push(date);
+    }
 
     query += ` ORDER BY l.created_at DESC`;
 
@@ -867,6 +864,7 @@ if (date) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
 
 /**
  * GET /api/auth/verify
