@@ -131,6 +131,25 @@ function setupEventListeners() {
         closeLogsModalBtn.addEventListener('click', hideLogsModal);
     }
     
+    // Logs date filter
+    const logsDateFilter = document.getElementById('logsDateFilter');
+    const clearLogsDateFilter = document.getElementById('clearLogsDateFilter');
+    
+    if (logsDateFilter) {
+        logsDateFilter.addEventListener('change', () => {
+            const activeTab = document.querySelector('[data-tab].active')?.dataset.tab || 'deleted';
+            loadLogs(activeTab, logsDateFilter.value);
+        });
+    }
+    
+    if (clearLogsDateFilter) {
+        clearLogsDateFilter.addEventListener('click', () => {
+            logsDateFilter.value = '';
+            const activeTab = document.querySelector('[data-tab].active')?.dataset.tab || 'deleted';
+            loadLogs(activeTab, null);
+        });
+    }
+    
     // Edit order modal
     if (closeEditModalBtn) {
         closeEditModalBtn.addEventListener('click', hideEditOrderModal);
@@ -955,22 +974,29 @@ function switchLogsTab(tab) {
     // Show/hide sections
     const deletedSection = document.getElementById('deletedLogs');
     const editedSection = document.getElementById('editedLogs');
+    const logsDateFilter = document.getElementById('logsDateFilter');
+    const filterDate = logsDateFilter ? logsDateFilter.value : null;
     
     if (tab === 'deleted') {
         if (deletedSection) deletedSection.style.display = 'block';
         if (editedSection) editedSection.style.display = 'none';
-        loadLogs('deleted');
+        loadLogs('deleted', filterDate);
     } else {
         if (deletedSection) deletedSection.style.display = 'none';
         if (editedSection) editedSection.style.display = 'block';
-        loadLogs('edited');
+        loadLogs('edited', filterDate);
     }
 }
 
 // Load logs
-async function loadLogs(type) {
+async function loadLogs(type, filterDate = null) {
     try {
-        const response = await fetch(`/api/logs?type=${type}`, {
+        let url = `/api/logs?type=${type}`;
+        if (filterDate) {
+            url += `&date=${filterDate}`;
+        }
+        
+        const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${currentToken}`

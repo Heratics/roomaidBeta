@@ -822,6 +822,7 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
  * GET /api/logs
  * Get order logs (deleted and edited orders)
  * Requires authentication and manager/admin role
+ * Query parameters: type (optional), date (optional)
  */
 app.get('/api/logs', authenticateToken, async (req, res) => {
   try {
@@ -832,7 +833,7 @@ app.get('/api/logs', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Manager or admin access required' });
     }
 
-    const { type } = req.query; // 'deleted' or 'edited'
+    const { type, date } = req.query; // 'deleted' or 'edited', and optional date filter
 
     let query = `
       SELECT l.*,
@@ -847,6 +848,11 @@ app.get('/api/logs', authenticateToken, async (req, res) => {
     if (type) {
       query += ` AND l.action_type = ?`;
       params.push(type);
+    }
+
+    if (date) {
+      query += ` AND DATE(l.created_at) = ?`;
+      params.push(date);
     }
 
     query += ` ORDER BY l.created_at DESC`;

@@ -375,9 +375,16 @@
             </div>
             
             <!-- Logs tabs -->
-            <div class="tab-buttons" style="margin-bottom: 20px;">
-                <button class="tab-btn active" data-tab="deleted" onclick="switchLogsTab('deleted')">🗑️ Deleted Orders</button>
-                <button class="tab-btn" data-tab="edited" onclick="switchLogsTab('edited')">✏️ Edited Orders</button>
+            <div class="tab-buttons" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <button class="tab-btn active" data-tab="deleted" onclick="switchLogsTab('deleted')">🗑️ Deleted Orders</button>
+                    <button class="tab-btn" data-tab="edited" onclick="switchLogsTab('edited')">✏️ Edited Orders</button>
+                </div>
+                <div class="logs-filter">
+                    <label for="logsDateFilter">Filter by Date:</label>
+                    <input type="date" id="logsDateFilter" />
+                    <button id="clearLogsDateFilter" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.9rem;">Clear</button>
+                </div>
             </div>
             
             <!-- Logs content -->
