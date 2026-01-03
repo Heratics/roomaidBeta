@@ -77,8 +77,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedToken && savedUser) {
         currentToken = savedToken;
         currentUser = JSON.parse(savedUser);
-        // Show logs button for manager/admin only
-        if (logsMenuItem && currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin')) {
+        // Show logs button for manager/admin/supervisor only
+        if (logsMenuItem && currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'supervisor')) {
             logsMenuItem.style.display = 'flex';
         }
         showDashboard();
