@@ -43,8 +43,15 @@ const holdTimeFrameInput = document.getElementById('holdTimeFrameInput') || {};
 const cancelHoldTimeBtn = document.getElementById('cancelHoldTimeBtn');
 const confirmHoldTimeBtn = document.getElementById('confirmHoldTimeBtn');
 
+const holdOrderNextDayTimeModal = document.getElementById('holdOrderNextDayTimeModal');
+const closeHoldNextDayTimeModalBtn = document.getElementById('closeHoldNextDayTimeModalBtn');
+const holdNextDayTimeInput = document.getElementById('holdNextDayTimeInput');
+const cancelHoldNextDayTimeBtn = document.getElementById('cancelHoldNextDayTimeBtn');
+const confirmHoldNextDayTimeBtn = document.getElementById('confirmHoldNextDayTimeBtn');
+
 let orderToHold = null;
 let holdOrderDay = null; // 'same-day' or 'next-day'
+let holdNextDayTime = null; // time for next-day holds in HH:MM format
 
 // Logs modal elements
 const logsModal = document.getElementById('logsModal');
@@ -126,6 +133,17 @@ function setupEventListeners() {
     
     // Date filter
     if (dateFilter) {
+        // Set default to today's date
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayFormatted = `${month}/${day}/${year}`;
+        
+        dateFilter.value = todayFormatted;
+        currentDateFilter = todayFormatted;
+        console.log('Date filter initialized to today:', todayFormatted);
+        
         dateFilter.addEventListener('change', handleDateFilter);
     }
     
@@ -197,7 +215,7 @@ function setupEventListeners() {
             }
             holdOrderDay = 'next-day';
             hideHoldOrderDayModal();
-            confirmHoldOrder();
+            showHoldOrderNextDayTimeModal();
         });
     }
     
@@ -213,10 +231,29 @@ function setupEventListeners() {
         confirmHoldTimeBtn.addEventListener('click', confirmHoldOrder);
     }
     
+    // Next-day time modal event listeners
+    if (closeHoldNextDayTimeModalBtn) {
+        closeHoldNextDayTimeModalBtn.addEventListener('click', hideHoldOrderNextDayTimeModal);
+    }
+    
+    if (cancelHoldNextDayTimeBtn) {
+        cancelHoldNextDayTimeBtn.addEventListener('click', hideHoldOrderNextDayTimeModal);
+    }
+    
+    if (confirmHoldNextDayTimeBtn) {
+        confirmHoldNextDayTimeBtn.addEventListener('click', confirmHoldOrderNextDay);
+    }
+    
     // Quick time suggestions for hold order
     document.querySelectorAll('.quick-suggestion-btn[data-time]').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            holdTimeFrameInput.value = e.target.dataset.time;
+            const time = e.target.dataset.time;
+            // Check if this is for the next-day time modal
+            if (holdNextDayTimeInput && e.target.closest('#holdOrderNextDayTimeModal')) {
+                holdNextDayTimeInput.value = time;
+            } else if (holdTimeFrameInput && holdTimeFrameInput.value !== undefined) {
+                holdTimeFrameInput.value = time;
+            }
         });
     });
     
@@ -319,6 +356,89 @@ function hideHoldOrderTimeModal() {
         holdReasonInput.value = ''; // Clear reason after hold completes
     }
     holdOrderDay = null; // Clear here after the flow is complete
+}
+
+// Show hold order next-day time modal
+function showHoldOrderNextDayTimeModal() {
+    if (holdNextDayTimeInput) {
+        holdNextDayTimeInput.value = '08:00'; // Default to 8:00 AM
+    }
+    holdOrderNextDayTimeModal.style.display = 'flex';
+}
+
+// Hide hold order next-day time modal
+function hideHoldOrderNextDayTimeModal() {
+    holdOrderNextDayTimeModal.style.display = 'none';
+    if (holdNextDayTimeInput) {
+        holdNextDayTimeInput.value = '';
+    }
+    holdNextDayTime = null;
+    holdOrderDay = null;
+}
+
+// Confirm hold order for next day
+async function confirmHoldOrderNextDay() {
+    const timeValue = holdNextDayTimeInput ? holdNextDayTimeInput.value : '';
+    console.log('confirmHoldOrderNextDay called with:', { orderToHold, time: timeValue, reason: holdReasonInput ? holdReasonInput.value : 'N/A' });
+    
+    if (!orderToHold) {
+        alert('No order selected. Please try again.');
+        return;
+    }
+    
+    if (!timeValue) {
+        alert('Please select a time for the next day hold.');
+        return;
+    }
+    
+    const holdReason = holdReasonInput ? holdReasonInput.value.trim() : '';
+    if (!holdReason) {
+        alert('Please enter a reason for holding this order.');
+        return;
+    }
+    
+    holdNextDayTime = timeValue;
+    
+    const holdData = {
+        day: 'next-day',
+        timeFrame: null,
+        reason: holdReason,
+        nextDayTime: timeValue
+    };
+    
+    console.log('Hold data to send:', holdData);
+    
+    try {
+        const response = await fetch(`/api/orders/${orderToHold}/hold`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${currentToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(holdData)
+        });
+        
+        console.log('Hold response status:', response.status);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('Order held successfully:', result);
+            hideHoldOrderNextDayTimeModal();
+            // Clear the held order
+            orderToHold = null;
+            // Small delay to ensure server has processed the hold
+            setTimeout(() => {
+                loadOrders(); // Reload orders to show updated status
+            }, 500);
+        } else {
+            const errorData = await response.json();
+            console.error('Failed to hold order:', errorData);
+            alert(`Failed to hold order: ${errorData.error || 'Please try again.'}`);
+        }
+    } catch (error) {
+        console.error('Error holding order:', error);
+        alert('Error holding order. Please try again.');
+    }
 }
 
 // Confirm hold order

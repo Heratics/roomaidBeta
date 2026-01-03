@@ -430,6 +430,38 @@
         </div>
     </div>
 
+    <!-- Hold Order Next Day Time Modal -->
+    <div id="holdOrderNextDayTimeModal" class="modal" style="display: none;">
+        <div class="modal-content delete-confirm-modal">
+            <div class="modal-header">
+                <h2>⏸️ Hold Order - Next Day Time</h2>
+                <button id="closeHoldNextDayTimeModalBtn" class="close-btn">&times;</button>
+            </div>
+            
+            <div class="delete-confirm-content">
+                <h3>What time on the next day?</h3>
+                <p>Enter the time in 24-hour format (e.g., 14:00 for 2:00 PM, 16:00 for 4:00 PM)</p>
+                
+                <div class="deletion-reason-section">
+                    <label for="holdNextDayTimeInput">Time (24-hour format):</label>
+                    <input type="time" id="holdNextDayTimeInput" class="deletion-reason-input" style="padding: 10px; font-size: 16px;">
+                    <div class="quick-suggestions" style="margin-top: 10px;">
+                        <button type="button" class="quick-suggestion-btn" data-time="08:00">8:00 AM</button>
+                        <button type="button" class="quick-suggestion-btn" data-time="12:00">12:00 PM</button>
+                        <button type="button" class="quick-suggestion-btn" data-time="14:00">2:00 PM</button>
+                        <button type="button" class="quick-suggestion-btn" data-time="16:00">4:00 PM</button>
+                        <button type="button" class="quick-suggestion-btn" data-time="18:00">6:00 PM</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-actions">
+                <button id="cancelHoldNextDayTimeBtn" class="btn btn-secondary">Cancel</button>
+                <button id="confirmHoldNextDayTimeBtn" class="btn btn-primary">Confirm Hold</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ============================================================================
          LOGS MODAL SECTION
          ============================================================================ -->

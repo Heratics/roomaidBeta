@@ -579,7 +579,7 @@ app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
 app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { day, timeFrame, reason } = req.body;
+    const { day, timeFrame, reason, nextDayTime } = req.body;
     const user = req.user;
 
     // Convert id to integer for database query
@@ -589,7 +589,7 @@ app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
-    console.log('Hold order request:', { id: orderId, day, timeFrame, reason, user: user.id, hotel_code: user.hotel_code || user.hotelCode });
+    console.log('Hold order request:', { id: orderId, day, timeFrame, nextDayTime, reason, user: user.id, hotel_code: user.hotel_code || user.hotelCode });
 
     // Validate day parameter
     if (!day || (day !== 'same-day' && day !== 'next-day')) {
@@ -632,11 +632,21 @@ app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
       tomorrow.setHours(23, 59, 59, 999);
       holdUntil = tomorrow;
       
-      // Set created_at to start of next day (midnight)
-      const tomorrowMidnight = new Date();
-      tomorrowMidnight.setDate(tomorrowMidnight.getDate() + 1);
-      tomorrowMidnight.setHours(0, 0, 0, 0);
-      newCreatedAt = tomorrowMidnight;
+      // Parse nextDayTime (format: HH:MM)
+      if (nextDayTime) {
+        const [hours, minutes] = nextDayTime.split(':').map(Number);
+        const tomorrowWithTime = new Date();
+        tomorrowWithTime.setDate(tomorrowWithTime.getDate() + 1);
+        tomorrowWithTime.setHours(hours, minutes, 0, 0);
+        newCreatedAt = tomorrowWithTime;
+        console.log('Next day hold set to:', newCreatedAt);
+      } else {
+        // Fallback to midnight if no time provided
+        const tomorrowMidnight = new Date();
+        tomorrowMidnight.setDate(tomorrowMidnight.getDate() + 1);
+        tomorrowMidnight.setHours(0, 0, 0, 0);
+        newCreatedAt = tomorrowMidnight;
+      }
     }
 
     // Update order to mark as on hold and change date if next-day
