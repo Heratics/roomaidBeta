@@ -622,29 +622,50 @@ app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
     // Prepare hold information
     const holdInfo = day === 'same-day' ? `On hold - Same day (${timeFrame})` : 'On hold - Next day';
     
-    // Calculate hold_until date
+    // Calculate hold_until date and created_at date if next-day
     let holdUntil = null;
+    let newCreatedAt = null;
     if (day === 'next-day') {
-      // Set to tomorrow at the same time (or midnight if you prefer)
+      // Set hold_until to end of next day
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(23, 59, 59, 999); // End of next day
+      tomorrow.setHours(23, 59, 59, 999);
       holdUntil = tomorrow;
+      
+      // Set created_at to start of next day (midnight)
+      const tomorrowMidnight = new Date();
+      tomorrowMidnight.setDate(tomorrowMidnight.getDate() + 1);
+      tomorrowMidnight.setHours(0, 0, 0, 0);
+      newCreatedAt = tomorrowMidnight;
     }
 
-    // Update order to mark as on hold
+    // Update order to mark as on hold and change date if next-day
     if (tableName === 'engineering_orders') {
-      await db.query(`
-        UPDATE engineering_orders 
-        SET on_hold = ?, hold_info = ?, hold_until = ?, hold_reason = ?
-        WHERE id = ?
-      `, [true, holdInfo, holdUntil, reason || null, orderId]);
+      let query = `UPDATE engineering_orders SET on_hold = ?, hold_info = ?, hold_until = ?, hold_reason = ?`;
+      let params = [true, holdInfo, holdUntil, reason || null];
+      
+      if (newCreatedAt) {
+        query += `, created_at = ?`;
+        params.push(newCreatedAt);
+      }
+      
+      query += ` WHERE id = ?`;
+      params.push(orderId);
+      
+      await db.query(query, params);
     } else {
-      await db.query(`
-        UPDATE housekeeping_orders 
-        SET on_hold = ?, hold_info = ?, hold_until = ?, hold_reason = ?
-        WHERE id = ?
-      `, [true, holdInfo, holdUntil, reason || null, orderId]);
+      let query = `UPDATE housekeeping_orders SET on_hold = ?, hold_info = ?, hold_until = ?, hold_reason = ?`;
+      let params = [true, holdInfo, holdUntil, reason || null];
+      
+      if (newCreatedAt) {
+        query += `, created_at = ?`;
+        params.push(newCreatedAt);
+      }
+      
+      query += ` WHERE id = ?`;
+      params.push(orderId);
+      
+      await db.query(query, params);
     }
 
     // Log the hold action
@@ -656,15 +677,33 @@ app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
       ? `Order put on hold by ${userFullName}: ${holdInfo}. Reason: ${reason}`
       : `Order put on hold by ${userFullName}: ${holdInfo}`;
     
+    // Fetch the order to get its name for logging
+    let orderForLog;
+    if (tableName === 'engineering_orders') {
+      const result = await db.query(`SELECT order_name FROM engineering_orders WHERE id = ?`, [orderId]);
+      orderForLog = result.length > 0 ? result[0] : null;
+    } else {
+      const result = await db.query(`SELECT order_name FROM housekeeping_orders WHERE id = ?`, [orderId]);
+      orderForLog = result.length > 0 ? result[0] : null;
+    }
+    
+    const holdLogData = {
+      order_name: orderForLog?.order_name || `Order #${orderId}`,
+      on_hold: true,
+      hold_info: holdInfo,
+      hold_reason: reason || null
+    };
+    
     await db.query(`
-      INSERT INTO order_logs (order_id, order_type, action_type, changed_by, changed_by_name, hotel_code, change_description)
-      VALUES (?, ?, 'hold', ?, ?, ?, ?)
+      INSERT INTO order_logs (order_id, order_type, action_type, changed_by, changed_by_name, hotel_code, new_data, change_description)
+      VALUES (?, ?, 'hold', ?, ?, ?, ?, ?)
     `, [
       orderId,
       tableName === 'engineering_orders' ? 'engineering' : 'housekeeping',
       user.id,
       userFullName,
       user.hotel_code || user.hotelCode,
+      JSON.stringify(holdLogData),
       logDescription
     ]);
 

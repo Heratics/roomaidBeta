@@ -1337,6 +1337,14 @@ function displayLogs(logs, type) {
                     ${oldData.order_notes ? `Notes: ${escapeHtml(oldData.order_notes)}<br>` : ''}
                 </div>
             `;
+        } else if (type === 'hold' && newData) {
+            detailsHtml = `
+                <div class="log-details">
+                    <strong>Hold Details:</strong><br>
+                    Status: ${escapeHtml(newData.hold_info || 'On Hold')}<br>
+                    ${newData.hold_reason ? `Reason: ${escapeHtml(newData.hold_reason)}<br>` : ''}
+                </div>
+            `;
         }
         
         logItem.innerHTML = `
