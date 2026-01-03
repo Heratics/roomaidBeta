@@ -35,6 +35,7 @@ const holdOrderDayModal = document.getElementById('holdOrderDayModal');
 const closeHoldDayModalBtn = document.getElementById('closeHoldDayModalBtn');
 const holdSameDayBtn = document.getElementById('holdSameDayBtn');
 const holdNextDayBtn = document.getElementById('holdNextDayBtn');
+const holdReasonInput = document.getElementById('holdReasonInput');
 
 const holdOrderTimeModal = document.getElementById('holdOrderTimeModal');
 const closeHoldTimeModalBtn = document.getElementById('closeHoldTimeModalBtn');
@@ -172,6 +173,10 @@ function setupEventListeners() {
     
     if (holdSameDayBtn) {
         holdSameDayBtn.addEventListener('click', () => {
+            if (!holdReasonInput || !holdReasonInput.value.trim()) {
+                alert('Please enter a reason for holding this order.');
+                return;
+            }
             holdOrderDay = 'same-day';
             hideHoldOrderDayModal();
             showHoldOrderTimeModal();
@@ -180,6 +185,10 @@ function setupEventListeners() {
     
     if (holdNextDayBtn) {
         holdNextDayBtn.addEventListener('click', () => {
+            if (!holdReasonInput || !holdReasonInput.value.trim()) {
+                alert('Please enter a reason for holding this order.');
+                return;
+            }
             holdOrderDay = 'next-day';
             hideHoldOrderDayModal();
             confirmHoldOrder();
@@ -256,6 +265,9 @@ function showHoldOrderDayModal(orderId) {
 // Hide hold order day selection modal
 function hideHoldOrderDayModal() {
     holdOrderDayModal.style.display = 'none';
+    if (holdReasonInput && holdReasonInput.value !== undefined) {
+        holdReasonInput.value = '';
+    }
     // Don't clear holdOrderDay here - it's still needed!
     // It will be cleared in hideHoldOrderTimeModal after completing the hold
 }
@@ -271,12 +283,15 @@ function hideHoldOrderTimeModal() {
     if (holdTimeFrameInput && holdTimeFrameInput.value !== undefined) {
         holdTimeFrameInput.value = '';
     }
+    if (holdReasonInput && holdReasonInput.value !== undefined) {
+        holdReasonInput.value = ''; // Clear reason after hold completes
+    }
     holdOrderDay = null; // Clear here after the flow is complete
 }
 
 // Confirm hold order
 async function confirmHoldOrder() {
-    console.log('confirmHoldOrder called with:', { orderToHold, holdOrderDay, timeFrame: holdTimeFrameInput.value });
+    console.log('confirmHoldOrder called with:', { orderToHold, holdOrderDay, timeFrame: holdTimeFrameInput.value, reason: holdReasonInput ? holdReasonInput.value : 'N/A' });
     
     if (!orderToHold) {
         console.error('No order to hold');
@@ -290,9 +305,16 @@ async function confirmHoldOrder() {
         return;
     }
     
+    const holdReason = holdReasonInput ? holdReasonInput.value.trim() : '';
+    if (!holdReason) {
+        alert('Please enter a reason for holding this order.');
+        return;
+    }
+    
     const holdData = {
         day: holdOrderDay,
-        timeFrame: holdOrderDay === 'same-day' ? (holdTimeFrameInput.value || null) : null
+        timeFrame: holdOrderDay === 'same-day' ? (holdTimeFrameInput.value || null) : null,
+        reason: holdReason
     };
     
     console.log('Hold data to send:', holdData);

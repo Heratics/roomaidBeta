@@ -129,6 +129,36 @@ class Database {
         console.log('Hold columns might already exist in housekeeping_orders');
       }
 
+      // Update order_logs action_type enum to include 'hold' if it doesn't exist
+      try {
+        await this.pool.query(`
+          ALTER TABLE order_logs
+          MODIFY COLUMN action_type ENUM('deleted', 'edited', 'restored', 'hold') NOT NULL
+        `);
+      } catch (error) {
+        console.log('order_logs action_type enum might already include hold');
+      }
+
+      // Add hold_reason column to engineering_orders if it doesn't exist
+      try {
+        await this.pool.query(`
+          ALTER TABLE engineering_orders
+          ADD COLUMN hold_reason TEXT NULL
+        `);
+      } catch (error) {
+        console.log('hold_reason column might already exist in engineering_orders');
+      }
+
+      // Add hold_reason column to housekeeping_orders if it doesn't exist
+      try {
+        await this.pool.query(`
+          ALTER TABLE housekeeping_orders
+          ADD COLUMN hold_reason TEXT NULL
+        `);
+      } catch (error) {
+        console.log('hold_reason column might already exist in housekeeping_orders');
+      }
+
       console.log('✅ Database tables created/verified');
     } catch (error) {
       console.error('❌ Error creating tables:', error);

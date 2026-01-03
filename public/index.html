@@ -379,6 +379,17 @@
             <div class="delete-confirm-content">
                 <h3>When will this order be delayed until?</h3>
                 <p>Select if the order is being held for same day or next day delivery.</p>
+                
+                <div class="deletion-reason-section">
+                    <label for="holdReasonInput">Reason for hold:</label>
+                    <textarea id="holdReasonInput" class="deletion-reason-input" placeholder="e.g., Guest requested later delivery, Waiting for parts, Staff shortage" rows="3"></textarea>
+                    <div class="quick-suggestions">
+                        <button type="button" class="quick-suggestion-btn" data-reason="Guest requested later delivery">Guest requested later</button>
+                        <button type="button" class="quick-suggestion-btn" data-reason="Waiting for parts/supplies">Waiting for parts</button>
+                        <button type="button" class="quick-suggestion-btn" data-reason="Staff shortage">Staff shortage</button>
+                        <button type="button" class="quick-suggestion-btn" data-reason="Guest not in room">Guest not in room</button>
+                    </div>
+                </div>
             </div>
             
             <div class="modal-actions">
