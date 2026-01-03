@@ -1260,6 +1260,83 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
 });
 
 /**
+ * PUT /api/admin/users/:id
+ * Update a user (admin only)
+ * Requires authentication and admin role
+ */
+app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const { id } = req.params;
+    const { firstName, lastName, username, password } = req.body;
+
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Validate input
+    if (!firstName || !lastName || !username) {
+      return res.status(400).json({ error: 'First name, last name, and username are required' });
+    }
+
+    // Check if target user exists
+    const targetUser = await db.query(`
+      SELECT id, username FROM users 
+      WHERE id = ?
+    `, [id]);
+
+    if (targetUser.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if new username already exists (only if username changed)
+    if (username !== targetUser[0].username) {
+      const existingUser = await db.query(`
+        SELECT id FROM users WHERE username = ?
+      `, [username]);
+
+      if (existingUser.length > 0) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
+    }
+
+    // Build update query
+    let updateQuery = `UPDATE users SET first_name = ?, last_name = ?, username = ?`;
+    let updateParams = [firstName, lastName, username];
+
+    // Only update password if provided
+    if (password && password.trim()) {
+      updateQuery += `, passwordHash = ?`;
+      updateParams.push(password);
+    }
+
+    updateQuery += ` WHERE id = ?`;
+    updateParams.push(id);
+
+    // Execute update
+    await db.query(updateQuery, updateParams);
+
+    // Fetch updated user
+    const updatedUser = await db.query(`
+      SELECT u.id, u.username, u.first_name, u.last_name, u.hotel_code, u.role, h.name as hotelName
+      FROM users u
+      LEFT JOIN hotels h ON u.hotel_code = h.code
+      WHERE u.id = ?
+    `, [id]);
+
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+      user: updatedUser[0]
+    });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * DELETE /api/admin/users/:id
  * Delete a user (admin only)
  * Requires authentication and admin role

@@ -458,6 +458,12 @@ function setupFormHandlers() {
         addUserForm.addEventListener('submit', handleAddUser);
     }
     
+    // Edit user form
+    const editUserForm = document.getElementById('editUserForm');
+    if (editUserForm) {
+        editUserForm.addEventListener('submit', handleEditUserSubmit);
+    }
+    
     // Add hotel form
     const addHotelForm = document.getElementById('add-hotel-form');
     if (addHotelForm) {
@@ -828,8 +834,76 @@ function updatePaginationControls() {
  * Edit user (placeholder for future implementation)
  */
 function editUser(userId) {
-    showAlert('Edit functionality coming soon!', 'success');
-    // TODO: Implement user editing functionality
+    // Find the user in the current users list
+    const user = allUsers.find(u => u.id === userId);
+    if (!user) {
+        showAlert('User not found', 'error');
+        return;
+    }
+    
+    // Populate the edit form
+    document.getElementById('editUserId').value = userId;
+    document.getElementById('editFirstName').value = user.first_name || '';
+    document.getElementById('editLastName').value = user.last_name || '';
+    document.getElementById('editUsername').value = user.username || '';
+    document.getElementById('editPassword').value = '';
+    
+    // Show the modal
+    document.getElementById('editUserModal').style.display = 'flex';
+}
+
+function closeEditUserModal() {
+    document.getElementById('editUserModal').style.display = 'none';
+}
+
+async function handleEditUserSubmit(event) {
+    event.preventDefault();
+    
+    const userId = document.getElementById('editUserId').value;
+    const firstName = document.getElementById('editFirstName').value;
+    const lastName = document.getElementById('editLastName').value;
+    const username = document.getElementById('editUsername').value;
+    const password = document.getElementById('editPassword').value;
+    
+    if (!firstName || !lastName || !username) {
+        showAlert('First name, last name, and username are required', 'error');
+        return;
+    }
+    
+    try {
+        const updateData = {
+            firstName,
+            lastName,
+            username
+        };
+        
+        // Only include password if it was provided
+        if (password) {
+            updateData.password = password;
+        }
+        
+        const response = await fetch(`/api/admin/users/${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert('User updated successfully!', 'success');
+            closeEditUserModal();
+            loadUsers(); // Refresh users list
+        } else {
+            showAlert(result.error || 'Failed to update user', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating user:', error);
+        showAlert('Error updating user', 'error');
+    }
 }
 
 /**

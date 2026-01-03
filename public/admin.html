@@ -523,6 +523,45 @@
         </div>
     </div>
     
+    <!-- Edit User Modal -->
+    <div id="editUserModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;">
+        <div style="background: var(--bg-primary); padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Edit User</h2>
+                <button onclick="closeEditUserModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary);">&times;</button>
+            </div>
+            
+            <form id="editUserForm" style="display: flex; flex-direction: column; gap: 15px;">
+                <input type="hidden" id="editUserId" />
+                
+                <div style="display: flex; flex-direction: column;">
+                    <label for="editFirstName" style="margin-bottom: 5px; font-weight: 500;">First Name:</label>
+                    <input type="text" id="editFirstName" name="firstName" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary);">
+                </div>
+                
+                <div style="display: flex; flex-direction: column;">
+                    <label for="editLastName" style="margin-bottom: 5px; font-weight: 500;">Last Name:</label>
+                    <input type="text" id="editLastName" name="lastName" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary);">
+                </div>
+                
+                <div style="display: flex; flex-direction: column;">
+                    <label for="editUsername" style="margin-bottom: 5px; font-weight: 500;">Username:</label>
+                    <input type="text" id="editUsername" name="username" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary);">
+                </div>
+                
+                <div style="display: flex; flex-direction: column;">
+                    <label for="editPassword" style="margin-bottom: 5px; font-weight: 500;">New Password (leave blank to keep current):</label>
+                    <input type="password" id="editPassword" name="password" placeholder="Enter new password or leave blank" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary);">
+                </div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button type="button" onclick="closeEditUserModal()" style="flex: 1; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; color: var(--text-primary); font-weight: 500;">Cancel</button>
+                    <button type="submit" style="flex: 1; padding: 10px; background: var(--brand-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <script src="admin.js"></script>
 </body>
 </html>
