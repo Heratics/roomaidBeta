@@ -904,158 +904,188 @@ function autoDetectArabicText(event) {
     }
 }
 
-// ============================================================================
-// LOGS FUNCTIONALITY
-// ============================================================================
+// =========================
+// LOGS FUNCTIONALITY START
+// =========================
 
-// Show logs modal
+let logsUserFilter = null;
+let logsDateFilter = null;
+let activeLogsTab = 'deleted';
+
+/* ---------- OPEN LOGS MODAL ---------- */
 function showLogsModal() {
-    if (logsModal) {
-        logsModal.style.display = 'flex';
-        switchLogsTab('deleted');
-        // Close settings menu
-        const settingsDropdown = document.getElementById('settingsDropdown');
-        if (settingsDropdown) {
-            settingsDropdown.classList.remove('active');
-            settingsMenuOpen = false;
-        }
-    }
-}
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal logs-modal">
+            <div class="modal-header">
+                <h2>📋 Order Logs</h2>
+                <button class="close-btn" onclick="closeModal()">✕</button>
+            </div>
 
-// Hide logs modal
-function hideLogsModal() {
-    if (logsModal) {
-        logsModal.style.display = 'none';
-    }
-}
+            <div class="logs-filters">
+                <select id="logsUserFilter">
+                    <option value="">All Users</option>
+                </select>
 
-// Switch logs tab
-function switchLogsTab(tab) {
-    // Update tab buttons
-    document.querySelectorAll('[data-tab]').forEach(btn => {
-        if (btn.dataset.tab === tab) {
-            btn.classList.add('active');
-        } else {
-            btn.classList.remove('active');
-        }
+                <input type="date" id="logsDateFilter" />
+
+                <button class="btn btn-secondary" onclick="clearLogsFilters()">Clear</button>
+            </div>
+
+            <div class="logs-tabs">
+                <button class="logs-tab active" data-tab="deleted">🗑 Deleted Orders</button>
+                <button class="logs-tab" data-tab="edited">✏️ Edited Orders</button>
+            </div>
+
+            <div id="logsContent" class="logs-content">
+                <p class="loading">Loading logs...</p>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document.querySelectorAll('.logs-tab').forEach(tab => {
+        tab.addEventListener('click', () => switchLogsTab(tab.dataset.tab));
     });
-    
-    // Show/hide sections
-    const deletedSection = document.getElementById('deletedLogs');
-    const editedSection = document.getElementById('editedLogs');
-    
-    if (tab === 'deleted') {
-        if (deletedSection) deletedSection.style.display = 'block';
-        if (editedSection) editedSection.style.display = 'none';
-        loadLogs('deleted');
-    } else {
-        if (deletedSection) deletedSection.style.display = 'none';
-        if (editedSection) editedSection.style.display = 'block';
-        loadLogs('edited');
-    }
+
+    document.getElementById('logsUserFilter').addEventListener('change', e => {
+        logsUserFilter = e.target.value || null;
+        loadLogs(activeLogsTab);
+    });
+
+    document.getElementById('logsDateFilter').addEventListener('change', e => {
+        logsDateFilter = e.target.value || null;
+        loadLogs(activeLogsTab);
+    });
+
+    loadLogs(activeLogsTab);
 }
 
-// Load logs
+/* ---------- TAB SWITCH ---------- */
+function switchLogsTab(tab) {
+    activeLogsTab = tab;
+
+    document.querySelectorAll('.logs-tab').forEach(btn =>
+        btn.classList.toggle('active', btn.dataset.tab === tab)
+    );
+
+    loadLogs(tab);
+}
+
+/* ---------- LOAD LOGS ---------- */
 async function loadLogs(type) {
     try {
-        const response = await fetch(`/api/logs?type=${type}`, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${currentToken}`
-            }
+        let url = `/api/logs?type=${type}`;
+        if (logsUserFilter) url += `&userId=${logsUserFilter}`;
+        if (logsDateFilter) url += `&date=${logsDateFilter}`;
+
+        const response = await fetch(url, {
+            headers: { Authorization: `Bearer ${currentToken}` }
         });
-        
-        if (response.ok) {
-            const data = await response.json();
-            displayLogs(data.logs, type);
-        } else {
-            console.error('Failed to load logs');
-        }
-    } catch (error) {
-        console.error('Error loading logs:', error);
+
+        if (!response.ok) throw new Error('Failed to load logs');
+
+        const data = await response.json();
+
+        populateLogsUsers(data.logs);
+        renderLogs(data.logs, type);
+
+    } catch (err) {
+        console.error('Logs error:', err);
+        document.getElementById('logsContent').innerHTML =
+            `<p class="error">Failed to load logs</p>`;
     }
 }
 
-// Display logs
-function displayLogs(logs, type) {
-    const listId = type === 'deleted' ? 'deletedLogsList' : 'editedLogsList';
-    const listElement = document.getElementById(listId);
-    
-    if (!listElement) return;
-    
-    if (logs.length === 0) {
-        listElement.innerHTML = `
-            <div class="empty-state">
-                <h3>No ${type} orders</h3>
-                <p>No ${type} orders found in the logs.</p>
-            </div>
-        `;
+/* ---------- RENDER LOGS ---------- */
+function renderLogs(logs, type) {
+    const container = document.getElementById('logsContent');
+
+    if (!logs || logs.length === 0) {
+        container.innerHTML = `<p class="empty">No ${type} logs found.</p>`;
         return;
     }
-    
-    listElement.innerHTML = '';
-    
-    logs.forEach(log => {
-        const logItem = document.createElement('div');
-        logItem.className = `log-item ${type}`;
-        
-        const oldData =
-            typeof log.old_data === 'string'
-                ? JSON.parse(log.old_data)
-                : log.old_data;
 
-        const newData =
-            typeof log.new_data === 'string'
-                ? JSON.parse(log.new_data)
-                : log.new_data;
+    container.innerHTML = logs.map(log => {
+        const oldData = log.old_data || {};
+        const newData = log.new_data || {};
 
-        
-        const orderName = oldData?.order_name || newData?.order_name || 'Unknown';
-        const roomNumber = orderName.replace('Room ', '');
-        const changedAt = new Date(log.created_at).toLocaleString();
-        const changedBy = log.changed_by_full_name || log.changed_by_name || 'Unknown';
-        const department = log.order_type === 'engineering' ? 'Engineering' : 'Housekeeping';
-        
-        let detailsHtml = '';
-        if (type === 'edited' && oldData && newData) {
-            detailsHtml = `
-                <div class="log-details">
-                    <strong>Changes:</strong><br>
-                    ${oldData.order_name !== newData.order_name ? 
-                        `Order Name: "${oldData.order_name}" → "${newData.order_name}"<br>` : ''}
-                    ${oldData.order_notes !== newData.order_notes ? 
-                        `Notes: "${oldData.order_notes || ''}" → "${newData.order_notes || ''}"<br>` : ''}
+        return `
+            <div class="log-card">
+                <div class="log-header">
+                    <strong>Room ${log.room_number || '-'}</strong>
+                    <span>${new Date(log.created_at).toLocaleString()}</span>
                 </div>
-            `;
-        } else if (type === 'deleted' && oldData) {
-            detailsHtml = `
-                <div class="log-details">
-                    <strong>Deleted Order Details:</strong><br>
-                    Room: ${roomNumber}<br>
-                    Department: ${department}<br>
-                    ${oldData.order_notes ? `Notes: ${escapeHtml(oldData.order_notes)}<br>` : ''}
+
+                <div class="log-body">
+                    <p><strong>Action:</strong> ${log.log_type}</p>
+                    <p><strong>By:</strong> ${log.changed_by_full_name || 'Unknown'}</p>
+
+                    ${type === 'edited' ? renderChanges(oldData, newData) : ''}
                 </div>
-            `;
-        }
-        
-        logItem.innerHTML = `
-            <div class="log-header">
-                <div class="log-title">Room ${escapeHtml(roomNumber)} - ${department}</div>
-                <div class="log-meta">${escapeHtml(changedAt)}</div>
             </div>
-            <div class="log-description">
-                ${escapeHtml(log.change_description || `${type === 'deleted' ? 'Deleted' : 'Edited'} by ${changedBy}`)}
-            </div>
-            ${detailsHtml}
         `;
-        
-        listElement.appendChild(logItem);
+    }).join('');
+}
+
+/* ---------- RENDER EDIT DIFF ---------- */
+function renderChanges(oldData, newData) {
+    const fields = ['room_number', 'department', 'notes'];
+
+    return `
+        <div class="log-changes">
+            ${fields.map(field => {
+                if (oldData[field] !== newData[field]) {
+                    return `
+                        <p>
+                            <strong>${field}:</strong>
+                            <span class="old">${oldData[field] ?? '-'}</span>
+                            →
+                            <span class="new">${newData[field] ?? '-'}</span>
+                        </p>
+                    `;
+                }
+                return '';
+            }).join('')}
+        </div>
+    `;
+}
+
+/* ---------- POPULATE USERS FILTER ---------- */
+function populateLogsUsers(logs) {
+    const select = document.getElementById('logsUserFilter');
+    if (!select) return;
+
+    const users = new Map();
+
+    logs.forEach(log => {
+        if (log.changed_by && log.changed_by_full_name) {
+            users.set(log.changed_by, log.changed_by_full_name);
+        }
+    });
+
+    select.innerHTML = `<option value="">All Users</option>`;
+    users.forEach((name, id) => {
+        select.innerHTML += `<option value="${id}">${name}</option>`;
     });
 }
 
-// ============================================================================
-// EDIT ORDER FUNCTIONALITY
-// ============================================================================
+/* ---------- CLEAR FILTERS ---------- */
+function clearLogsFilters() {
+    logsUserFilter = null;
+    logsDateFilter = null;
+
+    document.getElementById('logsUserFilter').value = '';
+    document.getElementById('logsDateFilter').value = '';
+
+    loadLogs(activeLogsTab);
+}
+
+// =========================
+// LOGS FUNCTIONALITY END
+// =========================
 
 // Show edit order modal
 function showEditOrderModal(order) {

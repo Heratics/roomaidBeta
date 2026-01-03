@@ -828,22 +828,34 @@ app.get('/api/logs', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Manager or admin access required' });
     }
 
-    const { type } = req.query; // 'deleted' or 'edited'
+    const { type, userId, date } = req.query; // 'deleted' or 'edited'
 
     let query = `
-      SELECT l.*,
-             COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) as changed_by_full_name
-      FROM order_logs l
-      LEFT JOIN users u ON l.changed_by = u.id
-      WHERE l.hotel_code = ?
-    `;
+  SELECT l.*,
+         COALESCE(CONCAT(u.first_name, ' ', u.last_name), u.username) as changed_by_full_name
+  FROM order_logs l
+  LEFT JOIN users u ON l.changed_by = u.id
+  WHERE l.hotel_code = $1
+`;
 
-    const params = [user.hotel_code || user.hotelCode];
+const params = [user.hotel_code || user.hotelCode];
+let index = 2;
 
-    if (type) {
-      query += ` AND l.action_type = ?`;
-      params.push(type);
-    }
+if (type) {
+  query += ` AND l.log_type = $${index++}`;
+  params.push(type);
+}
+
+if (userId) {
+  query += ` AND l.changed_by = $${index++}`;
+  params.push(userId);
+}
+
+if (date) {
+  query += ` AND DATE(l.created_at) = $${index++}`;
+  params.push(date);
+}
+
 
     query += ` ORDER BY l.created_at DESC`;
 
