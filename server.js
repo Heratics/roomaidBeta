@@ -1854,6 +1854,240 @@ app.post('/api/seed', async (req, res) => {
 });
 
 // ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+/**
+ * GET /api/notifications/pending
+ * Get pending notifications for unclaimed orders
+ * Checks for orders not received after 3 minutes and 8 minutes
+ * Employees get notified at 3 minutes, everyone (including managers) at 8 minutes
+ */
+app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const hotelCode = user.hotel_code || user.hotelCode;
+
+    // Check for unclaimed orders in both departments
+    const notifications = [];
+
+    for (const dept of ['engineering_orders', 'housekeeping_orders']) {
+      const deptName = dept === 'engineering_orders' ? 'Engineering' : 'Housekeeping';
+
+      // Find orders created more than 3 minutes ago that have not been received
+      const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000);
+      const eightMinAgo = new Date(Date.now() - 8 * 60 * 1000);
+
+      // Level 1 notifications (3 minutes): for all employees in the hotel
+      const level1Query = `
+        SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               'Engineering' as department
+        FROM ${dept} o
+        LEFT JOIN users creator ON o.sent_by = creator.id
+        WHERE o.hotel_code = ? 
+          AND o.assigned_to IS NULL 
+          AND o.deleted_at IS NULL
+          AND o.created_at <= ?
+          AND NOT EXISTS (
+            SELECT 1 FROM order_notifications 
+            WHERE order_id = o.id 
+            AND order_type = ? 
+            AND notification_level = 1
+          )
+        ORDER BY o.created_at ASC
+      `;
+
+      const level1Orders = await db.query(level1Query, [
+        hotelCode,
+        threeMinAgo,
+        deptName.toLowerCase()
+      ]);
+
+      // Level 2 notifications (8 minutes): for managers and supervisors
+      const level2Query = `
+        SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               'Engineering' as department
+        FROM ${dept} o
+        LEFT JOIN users creator ON o.sent_by = creator.id
+        WHERE o.hotel_code = ? 
+          AND o.assigned_to IS NULL 
+          AND o.deleted_at IS NULL
+          AND o.created_at <= ?
+          AND NOT EXISTS (
+            SELECT 1 FROM order_notifications 
+            WHERE order_id = o.id 
+            AND order_type = ? 
+            AND notification_level = 2
+          )
+        ORDER BY o.created_at ASC
+      `;
+
+      const level2Orders = await db.query(level2Query, [
+        hotelCode,
+        eightMinAgo,
+        deptName.toLowerCase()
+      ]);
+
+      // Determine which notifications to send based on user role
+      let userNotifications = [];
+      
+      if (['employee', 'supervisor'].includes(user.role)) {
+        // Employees and supervisors get level 1 notifications
+        userNotifications = level1Orders.map(order => ({
+          ...order,
+          department: deptName,
+          level: 1,
+          minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
+        }));
+      }
+
+      if (['supervisor', 'manager', 'admin'].includes(user.role)) {
+        // Managers, supervisors, and admins get level 2 notifications
+        userNotifications = userNotifications.concat(
+          level2Orders.map(order => ({
+            ...order,
+            department: deptName,
+            level: 2,
+            minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
+          }))
+        );
+      }
+
+      notifications.push(...userNotifications);
+    }
+
+    // Mark notifications as sent in database
+    for (const notif of notifications) {
+      try {
+        await db.query(`
+          INSERT INTO order_notifications (order_id, order_type, hotel_code, notification_level, sent_at)
+          VALUES (?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE sent_at = NOW()
+        `, [
+          notif.id,
+          notif.department.toLowerCase(),
+          hotelCode,
+          notif.level
+        ]);
+      } catch (error) {
+        console.log('Notification already logged or error:', error.message);
+      }
+    }
+
+    res.json({ notifications });
+  } catch (error) {
+    console.error('Get pending notifications error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// PUSH NOTIFICATIONS
+// ============================================================================
+
+/**
+ * POST /api/push/subscribe
+ * Save push notification subscription for a user
+ * Allows sending web push notifications to their devices
+ */
+app.post('/api/push/subscribe', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const { subscription } = req.body;
+
+    if (!subscription || !subscription.endpoint) {
+      return res.status(400).json({ error: 'Invalid subscription' });
+    }
+
+    const endpoint = subscription.endpoint;
+    const authKey = subscription.keys?.auth || null;
+    const p256dhKey = subscription.keys?.p256dh || null;
+
+    // Save or update subscription in database
+    try {
+      await db.query(`
+        INSERT INTO push_subscriptions 
+        (user_id, username, endpoint, auth_key, p256dh_key, hotel_code, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE 
+          user_id = VALUES(user_id),
+          username = VALUES(username),
+          updated_at = NOW()
+      `, [
+        user.id,
+        user.username,
+        endpoint,
+        authKey,
+        p256dhKey,
+        user.hotel_code || user.hotelCode
+      ]);
+
+      console.log(`✅ Push subscription saved for user ${user.username}`);
+      res.json({ success: true, message: 'Subscription saved' });
+    } catch (error) {
+      console.error('Error saving subscription:', error);
+      res.status(500).json({ error: 'Failed to save subscription' });
+    }
+  } catch (error) {
+    console.error('Subscribe error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/push/send
+ * Send push notification to subscribed users in a hotel
+ * Used internally for sending pending order notifications
+ */
+async function sendPushNotifications(hotelCode, title, message, notificationData) {
+  try {
+    // Get all subscriptions for users in the hotel
+    const subscriptions = await db.query(`
+      SELECT * FROM push_subscriptions 
+      WHERE hotel_code = ?
+    `, [hotelCode]);
+
+    if (subscriptions.length === 0) {
+      console.log(`No push subscriptions found for hotel ${hotelCode}`);
+      return;
+    }
+
+    const payload = JSON.stringify({
+      title: title,
+      body: message,
+      ...notificationData
+    });
+
+    console.log(`📢 Sending push to ${subscriptions.length} users in hotel ${hotelCode}`);
+
+    // Note: In production, you would use a library like 'web-push' to send notifications
+    // For now, this logs what would be sent. Install with: npm install web-push
+    // Then import: const webpush = require('web-push');
+    // And send with: await webpush.sendNotification(subscription, payload);
+
+    for (const subscription of subscriptions) {
+      console.log(`📤 Would send notification to user ${subscription.username} at ${subscription.endpoint.substring(0, 50)}...`);
+      // In production implementation:
+      // try {
+      //   await webpush.sendNotification({
+      //     endpoint: subscription.endpoint,
+      //     keys: {
+      //       auth: subscription.auth_key,
+      //       p256dh: subscription.p256dh_key
+      //     }
+      //   }, payload);
+      // } catch (error) {
+      //   console.error('Failed to send notification:', error);
+      // }
+    }
+  } catch (error) {
+    console.error('Error sending push notifications:', error);
+  }
+}
+
+// ============================================================================
 // STATIC FILE SERVING
 // ============================================================================
 

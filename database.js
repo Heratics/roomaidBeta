@@ -159,6 +159,40 @@ class Database {
         console.log('hold_reason column might already exist in housekeeping_orders');
       }
 
+      // Create Notifications table to track pending order notifications
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS order_notifications (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          order_id INT NOT NULL,
+          order_type ENUM('engineering', 'housekeeping') NOT NULL,
+          hotel_code VARCHAR(50) NOT NULL,
+          notification_level INT DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE KEY unique_notification (order_id, order_type, notification_level),
+          FOREIGN KEY (hotel_code) REFERENCES hotels(code)
+        )
+      `);
+
+      // Create Push Subscriptions table for web push notifications
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS push_subscriptions (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          username VARCHAR(50),
+          endpoint VARCHAR(500) NOT NULL UNIQUE,
+          auth_key VARCHAR(100),
+          p256dh_key VARCHAR(200),
+          hotel_code VARCHAR(50),
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id),
+          FOREIGN KEY (hotel_code) REFERENCES hotels(code),
+          INDEX idx_user_id (user_id),
+          INDEX idx_hotel_code (hotel_code)
+        )
+      `);
+
       console.log('✅ Database tables created/verified');
     } catch (error) {
       console.error('❌ Error creating tables:', error);
