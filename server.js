@@ -1270,6 +1270,53 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/manager/users
+ * List users scoped to the manager's hotel (manager/supervisor/admin)
+ * Query params: search (optional)
+ */
+app.get('/api/manager/users', authenticateToken, async (req, res) => {
+  try {
+    const requester = req.user;
+    const allowedRoles = ['manager', 'supervisor', 'admin'];
+
+    if (!allowedRoles.includes(requester.role)) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const hotelCode = requester.hotel_code || requester.hotelCode;
+    if (!hotelCode) {
+      return res.status(400).json({ error: 'Hotel code missing from user profile' });
+    }
+
+    const { search = '' } = req.query;
+    const searchTerm = search.trim();
+
+    let query = `
+      SELECT u.id, u.username, u.first_name, u.last_name, u.hotel_code, u.role,
+             h.name as hotelName
+      FROM users u
+      LEFT JOIN hotels h ON u.hotel_code = h.code
+      WHERE u.hotel_code = ?
+    `;
+    const params = [hotelCode];
+
+    if (searchTerm) {
+      query += ` AND (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ?)`;
+      const likeTerm = `%${searchTerm}%`;
+      params.push(likeTerm, likeTerm, likeTerm);
+    }
+
+    query += ' ORDER BY u.id DESC';
+
+    const users = await db.query(query, params);
+    res.json({ users, hotelCode });
+  } catch (error) {
+    console.error('Manager users fetch error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * POST /api/admin/hotels
  * Create a new hotel (admin only)
  * Requires authentication and admin role

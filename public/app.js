@@ -58,6 +58,7 @@ let holdNextDayTime = null; // time for next-day holds in HH:MM format
 const logsModal = document.getElementById('logsModal');
 const closeLogsModalBtn = document.getElementById('closeLogsModalBtn');
 const logsMenuItem = document.getElementById('logsMenuItem');
+const managerMenuItem = document.getElementById('managerMenuItem');
 
 // Edit order modal elements
 const editOrderModal = document.getElementById('editOrderModal');
@@ -101,9 +102,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (savedToken && savedUser) {
         currentToken = savedToken;
         currentUser = JSON.parse(savedUser);
-        // Show logs button for manager/admin/supervisor only
-        if (logsMenuItem && currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'supervisor')) {
+        const isPrivileged = currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'supervisor');
+        if (logsMenuItem && isPrivileged) {
             logsMenuItem.style.display = 'flex';
+        }
+        if (managerMenuItem && isPrivileged) {
+            managerMenuItem.style.display = 'flex';
         }
         showDashboard();
     } else {
@@ -183,6 +187,10 @@ function setupEventListeners() {
             const activeTab = document.querySelector('[data-tab].active')?.dataset.tab || 'deleted';
             loadLogs(activeTab, null);
         });
+    }
+
+    if (managerMenuItem) {
+        managerMenuItem.addEventListener('click', openManagerDashboard);
     }
     
     // Hold order modals
@@ -1126,6 +1134,10 @@ function toggleSettingsMenu() {
             settingsDropdown.classList.remove('active');
         }
     }
+}
+
+function openManagerDashboard() {
+    window.location.href = 'manager.html';
 }
 
 // Toggle between light and dark themes
