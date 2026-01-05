@@ -1296,7 +1296,7 @@ app.get('/api/manager/users', authenticateToken, async (req, res) => {
              h.name as hotelName
       FROM users u
       LEFT JOIN hotels h ON u.hotel_code = h.code
-      WHERE u.hotel_code = ?
+      WHERE u.hotel_code = ? AND u.role IN ('employee', 'supervisor')
     `;
     const params = [hotelCode];
 

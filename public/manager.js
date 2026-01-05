@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     autoDetectTheme();
     setupThemeToggle();
     bootstrapSession();
+    window.addEventListener('beforeunload', clearManagerSession);
 });
 
 function bootstrapSession() {
@@ -316,7 +317,7 @@ function renderUsersTable(users) {
                 <td>${user.username}</td>
                 <td><span class="pill">${user.role}</span></td>
                 <td>
-                    <button class="settings-btn edit-user-btn" data-id="${user.id}" style="padding:6px 10px;font-size:12px;">Edit</button>
+                    <button class="btn-secondary edit-user-btn" data-id="${user.id}" style="padding:8px 12px;">Edit</button>
                 </td>
             </tr>
         `;
