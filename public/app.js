@@ -145,18 +145,16 @@ function setupEventListeners() {
         });
     });
     
-    // Date filter
+    // Date filter - default to today's date in correct YYYY-MM-DD format
     if (dateFilter) {
-        // Set default to today's date
         const today = new Date();
         const year = today.getFullYear();
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
-        const todayFormatted = `${month}/${day}/${year}`;
+        const todayFormatted = `${year}-${month}-${day}`; // Correct YYYY-MM-DD format for input type="date"
         
         dateFilter.value = todayFormatted;
         currentDateFilter = todayFormatted;
-        console.log('Date filter initialized to today:', todayFormatted);
         
         dateFilter.addEventListener('change', handleDateFilter);
     }
