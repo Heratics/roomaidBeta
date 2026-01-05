@@ -10,7 +10,7 @@ let isLoading = false;
 let lastRequestTime = 0;
 const REQUEST_THROTTLE = 500; // Minimum 500ms between requests (reduced from 1000ms)
 let autoRefreshInterval = null;
-const AUTO_REFRESH_INTERVAL = 30000; // 30 seconds
+const AUTO_REFRESH_INTERVAL = 3000; // 3 seconds
 
 // Pagination variables
 let currentPage = 1;
