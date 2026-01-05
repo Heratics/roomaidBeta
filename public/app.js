@@ -842,20 +842,53 @@ async function initializePushNotifications() {
 }
 
 /**
+ * Fetch VAPID public key from server
+ */
+async function fetchVapidPublicKey() {
+    try {
+        const response = await fetch('/api/push/public-key');
+        if (!response.ok) {
+            console.warn('No VAPID public key configured on server');
+            return null;
+        }
+        const data = await response.json();
+        return data.publicKey || null;
+    } catch (error) {
+        console.warn('Failed to fetch VAPID public key:', error);
+        return null;
+    }
+}
+
+/**
  * Subscribe device to push notifications
  */
 async function subscribeToPushNotifications(registration) {
     try {
+        const publicKey = await fetchVapidPublicKey();
+        if (!publicKey) {
+            console.warn('Skipping push subscription: missing VAPID public key');
+            return;
+        }
+
         // Get existing subscription or create new one
         let subscription = await registration.pushManager.getSubscription();
 
+        // If an old subscription exists with a different VAPID key, resubscribe
+        if (subscription && subscription.options?.applicationServerKey) {
+            const existingKey = btoa(String.fromCharCode(...new Uint8Array(subscription.options.applicationServerKey)))
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+            if (existingKey !== publicKey) {
+                await subscription.unsubscribe();
+                subscription = null;
+            }
+        }
+
         if (!subscription) {
-            // Create new subscription with VAPID public key
             subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(
-                    'BHeqGwT-7eAH_xcVSuNy3rkWBm8r-OGQKuVPVhNALMdvF2Tj30sTMhqDjMvZzQA9MuUxQvkngPtTN5A7-LZCh8c'
-                )
+                applicationServerKey: urlBase64ToUint8Array(publicKey)
             });
         }
 

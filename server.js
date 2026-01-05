@@ -19,6 +19,9 @@ const cors = require('cors');
 // Session management middleware for user sessions
 const session = require('express-session');
 
+// Web push for browser notifications
+const webpush = require('web-push');
+
 // Input validation and security utilities
 const validation = require('./lib/validation');
 
@@ -43,6 +46,21 @@ const app = express();
 
 // Get server port from configuration or use default
 const PORT = config.server.port;
+
+// VAPID configuration for web push
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || config.vapidPublicKey;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || config.vapidPrivateKey;
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || config.vapidSubject || 'mailto:admin@example.com';
+const VAPID_CONFIGURED = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+let vapidWarningLogged = false;
+
+if (VAPID_CONFIGURED) {
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  console.log('Web push VAPID keys configured.');
+} else {
+  console.warn('VAPID keys not configured. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY to enable push delivery.');
+  vapidWarningLogged = true;
+}
 
 // ============================================================================
 // MIDDLEWARE SETUP
@@ -1861,7 +1879,7 @@ app.post('/api/seed', async (req, res) => {
  * GET /api/notifications/pending
  * Get pending notifications for unclaimed orders
  * Checks for orders not received after 3 minutes and 8 minutes
- * Employees get notified at 3 minutes, everyone (including managers) at 8 minutes
+ * All roles get notified at 3 minutes; supervisors/managers/admins also get an 8-minute escalation
  */
 app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
   try {
@@ -1870,6 +1888,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
 
     // Check for unclaimed orders in both departments
     const notifications = [];
+    const pushMessages = [];
 
     for (const dept of ['engineering_orders', 'housekeeping_orders']) {
       const deptName = dept === 'engineering_orders' ? 'Engineering' : 'Housekeeping';
@@ -1930,11 +1949,38 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
         deptName.toLowerCase()
       ]);
 
+      // Queue push messages for both levels (these are sent to appropriate roles in sendPushNotifications)
+      level1Orders.forEach(order => {
+        pushMessages.push({
+          hotelCode,
+          title: '⏰ Pending Order (3 mins)',
+          message: `${deptName}: ${order.order_name || `Order #${order.id}`}`,
+          data: {
+            orderId: order.id,
+            department: deptName,
+            level: 1
+          }
+        });
+      });
+
+      level2Orders.forEach(order => {
+        pushMessages.push({
+          hotelCode,
+          title: '🚨 URGENT: Unclaimed Order (8 mins)',
+          message: `${deptName}: ${order.order_name || `Order #${order.id}`}`,
+          data: {
+            orderId: order.id,
+            department: deptName,
+            level: 2
+          }
+        });
+      });
+
       // Determine which notifications to send based on user role
       let userNotifications = [];
-      
-      if (['employee', 'supervisor'].includes(user.role)) {
-        // Employees and supervisors get level 1 notifications
+
+      // All roles now get the 3-minute alert so managers/admins are also notified
+      if (['employee', 'supervisor', 'manager', 'admin'].includes(user.role)) {
         userNotifications = level1Orders.map(order => ({
           ...order,
           department: deptName,
@@ -1944,7 +1990,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
       }
 
       if (['supervisor', 'manager', 'admin'].includes(user.role)) {
-        // Managers, supervisors, and admins get level 2 notifications
+        // Managers, supervisors, and admins get the escalated 8-minute alert
         userNotifications = userNotifications.concat(
           level2Orders.map(order => ({
             ...order,
@@ -1956,6 +2002,13 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
       }
 
       notifications.push(...userNotifications);
+    }
+
+    // Send push notifications (if configured)
+    if (pushMessages.length) {
+      await Promise.all(
+        pushMessages.map(msg => sendPushNotifications(msg.hotelCode, msg.title, msg.message, msg.data))
+      );
     }
 
     // Mark notifications as sent in database
@@ -1986,6 +2039,17 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
 // ============================================================================
 // PUSH NOTIFICATIONS
 // ============================================================================
+
+/**
+ * GET /api/push/public-key
+ * Returns the VAPID public key for clients to subscribe
+ */
+app.get('/api/push/public-key', (req, res) => {
+  if (!VAPID_PUBLIC_KEY) {
+    return res.status(503).json({ error: 'Push notifications are not configured' });
+  }
+  res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
 
 /**
  * POST /api/push/subscribe
@@ -2043,11 +2107,28 @@ app.post('/api/push/subscribe', authenticateToken, async (req, res) => {
  */
 async function sendPushNotifications(hotelCode, title, message, notificationData) {
   try {
-    // Get all subscriptions for users in the hotel
+    if (!VAPID_CONFIGURED) {
+      if (!vapidWarningLogged) {
+        console.warn('Push notification attempt skipped: VAPID keys are not configured.');
+        vapidWarningLogged = true;
+      }
+      return;
+    }
+
+    const allowedRoles = notificationData.level === 2
+      ? ['supervisor', 'manager', 'admin']
+      : ['employee', 'supervisor', 'manager', 'admin'];
+
+    const rolePlaceholders = allowedRoles.map(() => '?').join(',');
+
+    // Get subscriptions for users in the hotel filtered by role
     const subscriptions = await db.query(`
-      SELECT * FROM push_subscriptions 
-      WHERE hotel_code = ?
-    `, [hotelCode]);
+      SELECT ps.*, u.role 
+      FROM push_subscriptions ps
+      JOIN users u ON ps.user_id = u.id
+      WHERE ps.hotel_code = ?
+        AND u.role IN (${rolePlaceholders})
+    `, [hotelCode, ...allowedRoles]);
 
     if (subscriptions.length === 0) {
       console.log(`No push subscriptions found for hotel ${hotelCode}`);
@@ -2060,27 +2141,41 @@ async function sendPushNotifications(hotelCode, title, message, notificationData
       ...notificationData
     });
 
-    console.log(`📢 Sending push to ${subscriptions.length} users in hotel ${hotelCode}`);
+    const results = await Promise.allSettled(
+      subscriptions.map(sub => {
+        const subscription = {
+          endpoint: sub.endpoint,
+          keys: {
+            auth: sub.auth_key,
+            p256dh: sub.p256dh_key
+          }
+        };
 
-    // Note: In production, you would use a library like 'web-push' to send notifications
-    // For now, this logs what would be sent. Install with: npm install web-push
-    // Then import: const webpush = require('web-push');
-    // And send with: await webpush.sendNotification(subscription, payload);
+        return webpush.sendNotification(subscription, payload);
+      })
+    );
 
-    for (const subscription of subscriptions) {
-      console.log(`📤 Would send notification to user ${subscription.username} at ${subscription.endpoint.substring(0, 50)}...`);
-      // In production implementation:
-      // try {
-      //   await webpush.sendNotification({
-      //     endpoint: subscription.endpoint,
-      //     keys: {
-      //       auth: subscription.auth_key,
-      //       p256dh: subscription.p256dh_key
-      //     }
-      //   }, payload);
-      // } catch (error) {
-      //   console.error('Failed to send notification:', error);
-      // }
+    // Clean up stale subscriptions and log failures
+    const staleEndpoints = [];
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const err = result.reason;
+        const status = err?.statusCode;
+        const endpoint = subscriptions[index]?.endpoint;
+
+        if (status === 404 || status === 410) {
+          staleEndpoints.push(endpoint);
+          console.warn(`Removed stale push subscription for endpoint ${endpoint}`);
+        } else {
+          console.error('Failed to send push notification:', err);
+        }
+      }
+    });
+
+    if (staleEndpoints.length) {
+      await Promise.all(
+        staleEndpoints.map(endpoint => db.query('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint]))
+      );
     }
   } catch (error) {
     console.error('Error sending push notifications:', error);

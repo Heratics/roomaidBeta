@@ -20,5 +20,10 @@ module.exports = {
   },
 
   // JWT Secret
-  jwtSecret: process.env.JWT_SECRET || 'your-secret-key-here'
+  jwtSecret: process.env.JWT_SECRET || 'your-secret-key-here',
+
+  // Web Push (VAPID) Configuration
+  vapidPublicKey: process.env.VAPID_PUBLIC_KEY || '',
+  vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || '',
+  vapidSubject: process.env.VAPID_SUBJECT || 'mailto:admin@example.com'
 }; 
