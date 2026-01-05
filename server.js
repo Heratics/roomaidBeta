@@ -1317,6 +1317,79 @@ app.get('/api/manager/users', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/manager/reports/daily
+ * Returns all orders for the manager's hotel on a specific date (both departments)
+ */
+app.get('/api/manager/reports/daily', authenticateToken, async (req, res) => {
+  try {
+    const requester = req.user;
+    const allowedRoles = ['manager', 'supervisor', 'admin'];
+
+    if (!allowedRoles.includes(requester.role)) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const hotelCode = requester.hotel_code || requester.hotelCode;
+    const { date } = req.query;
+
+    if (!date) {
+      return res.status(400).json({ error: 'Date is required (YYYY-MM-DD)' });
+    }
+
+    const baseFields = `
+      o.id,
+      o.order_name,
+      o.order_notes,
+      o.created_at,
+      o.completed_at,
+      o.on_hold,
+      o.hold_info,
+      o.hold_until,
+      o.hold_reason,
+      o.deleted_at,
+      o.hotel_code,
+      COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+      creator.username as creatorUsername,
+      COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
+      assignee.username as receiverUsername,
+      CASE
+        WHEN o.deleted_at IS NOT NULL THEN 'deleted'
+        WHEN o.completed_at IS NOT NULL THEN 'completed'
+        WHEN o.on_hold = 1 THEN 'on_hold'
+        ELSE 'open'
+      END AS status,
+      CASE
+        WHEN o.completed_at IS NOT NULL THEN TIMESTAMPDIFF(MINUTE, o.created_at, o.completed_at)
+        ELSE NULL
+      END AS duration_minutes
+    `;
+
+    const engineeringQuery = `
+      SELECT 'engineering' as department, ${baseFields}
+      FROM engineering_orders o
+      LEFT JOIN users creator ON o.sent_by = creator.id
+      LEFT JOIN users assignee ON o.assigned_to = assignee.id
+      WHERE o.hotel_code = ? AND o.deleted_at IS NULL AND DATE(o.created_at) = ?
+    `;
+
+    const housekeepingQuery = `
+      SELECT 'housekeeping' as department, ${baseFields}
+      FROM housekeeping_orders o
+      LEFT JOIN users creator ON o.sent_by = creator.id
+      LEFT JOIN users assignee ON o.assigned_to = assignee.id
+      WHERE o.hotel_code = ? AND o.deleted_at IS NULL AND DATE(o.created_at) = ?
+    `;
+
+    const orders = await db.query(`(${engineeringQuery}) UNION ALL (${housekeepingQuery}) ORDER BY created_at DESC`, [hotelCode, date, hotelCode, date]);
+
+    res.json({ orders, hotelCode, date });
+  } catch (error) {
+    console.error('Manager daily report error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * PUT /api/manager/users/:id
  * Update a user scoped to the manager's hotel (manager/supervisor/admin)
  */

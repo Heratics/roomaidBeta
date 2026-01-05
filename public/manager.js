@@ -159,9 +159,21 @@ function renderDashboard() {
             </div>
         </div>
         <div id="reports-section" class="manager-section">
-            <div class="placeholder-card">
-                <h3 style="margin-bottom:8px;">Reports</h3>
-                <p>Reports for your hotel will appear here. Coming soon.</p>
+            <div class="card">
+                <div class="flex-between" style="gap:12px; align-items:flex-end; flex-wrap:wrap;">
+                    <div>
+                        <h3 style="margin:0 0 6px 0;">Daily Report</h3>
+                        <p style="color:var(--text-secondary); margin:0;">Export all orders for your hotel on a selected day.</p>
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                        <div class="form-group" style="margin:0;">
+                            <label for="reportDate" style="margin-bottom:6px; display:block;">Date</label>
+                            <input type="date" id="reportDate" style="min-width:180px;">
+                        </div>
+                        <button id="downloadReportBtn" class="btn-primary" style="height:44px;">Download Excel (CSV)</button>
+                    </div>
+                </div>
+                <div id="reportStatus" class="alert alert-error" style="display:none; margin-top:12px;"></div>
             </div>
         </div>
 
@@ -220,6 +232,15 @@ function attachDashboardEvents() {
         searchInput.addEventListener('input', debounce(() => {
             loadUsers(searchInput.value.trim());
         }, 300));
+    }
+
+    const reportDateInput = document.getElementById('reportDate');
+    const downloadReportBtn = document.getElementById('downloadReportBtn');
+    if (reportDateInput) {
+        setDefaultReportDate(reportDateInput);
+    }
+    if (downloadReportBtn) {
+        downloadReportBtn.addEventListener('click', downloadDailyReport);
     }
 
     const closeEditModalBtn = document.getElementById('closeEditModalBtn');
@@ -408,6 +429,125 @@ function setUsersState({ loading = false, error = false }) {
 
     if (loader) loader.style.display = loading ? 'block' : 'none';
     if (errorDiv) errorDiv.style.display = error ? 'block' : 'none';
+}
+
+// Reports
+function setDefaultReportDate(inputEl) {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    inputEl.value = `${yyyy}-${mm}-${dd}`;
+}
+
+async function downloadDailyReport() {
+    const reportDateInput = document.getElementById('reportDate');
+    const status = document.getElementById('reportStatus');
+
+    if (!reportDateInput) return;
+    const date = reportDateInput.value;
+    if (!date) {
+        showReportError('Please pick a date to export.');
+        return;
+    }
+
+    showReportError('', false);
+    try {
+        const params = new URLSearchParams({ date });
+        const response = await fetch(`/api/manager/reports/daily?${params.toString()}`, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            clearManagerSession();
+            renderLogin();
+            return;
+        }
+
+        const data = await response.json();
+        if (!response.ok) {
+            const message = data?.error || 'Failed to fetch report.';
+            showReportError(message);
+            return;
+        }
+
+        const rows = (data.orders || []).map((o) => {
+            const durationMinutes = typeof o.duration_minutes === 'number' ? o.duration_minutes : '';
+            const statusText = o.status || '';
+            return {
+                Department: o.department,
+                OrderID: o.id,
+                Name: o.order_name,
+                Notes: o.order_notes,
+                Status: statusText,
+                OnHold: o.on_hold ? 'Yes' : 'No',
+                HoldInfo: o.hold_info || '',
+                HoldUntil: o.hold_until || '',
+                HoldReason: o.hold_reason || '',
+                CreatedAt: o.created_at,
+                CompletedAt: o.completed_at || '',
+                DurationMinutes: durationMinutes,
+                Creator: o.creatorName || '',
+                CreatorUsername: o.creatorUsername || '',
+                Receiver: o.receiverName || '',
+                ReceiverUsername: o.receiverUsername || '',
+                HotelCode: o.hotel_code || ''
+            };
+        });
+
+        if (!rows.length) {
+            showReportError('No orders found for that date.');
+            return;
+        }
+
+        exportToCsv(`roomaid-daily-report-${date}.csv`, rows);
+    } catch (error) {
+        console.error('Report export error:', error);
+        showReportError('Error exporting report. Please try again.');
+    }
+}
+
+function showReportError(message, show = true) {
+    const status = document.getElementById('reportStatus');
+    if (!status) return;
+    if (show && message) {
+        status.textContent = message;
+        status.style.display = 'block';
+        status.className = 'alert alert-error';
+    } else {
+        status.textContent = '';
+        status.style.display = 'none';
+    }
+}
+
+function exportToCsv(filename, rows) {
+    if (!rows || !rows.length) return;
+    const headers = Object.keys(rows[0]);
+    const csvContent = [headers.join(',')]
+        .concat(rows.map(row => headers.map(h => csvEscape(row[h])).join(',')))
+        .join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function csvEscape(value) {
+    if (value === null || value === undefined) return '';
+    const str = String(value);
+    if (str.includes('"') || str.includes(',') || str.includes('\n')) {
+        return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
 }
 
 // Navigation
