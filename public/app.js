@@ -5,6 +5,7 @@ let currentDepartment = 'Engineering';
 let currentDateFilter = null;
 let autoRefreshInterval = null;
 let isLoadingOrders = false; // prevent overlapping fetches
+let ordersInitialized = false;
 const AUTO_REFRESH_INTERVAL = 3000; // Refresh every 3 seconds
 
 // DOM elements
@@ -21,6 +22,10 @@ const dateFilter = document.getElementById('dateFilter');
 const clearDateFilter = document.getElementById('clearDateFilter');
 const orderNotes = document.getElementById('orderNotes');
 const currentLanguage = document.getElementById('currentLanguage');
+
+// Toast state
+let toastContainer = null;
+let seenOrderIds = new Set();
 
 // Settings menu state
 let settingsMenuOpen = false;
@@ -80,6 +85,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize language support
     initializeLanguage();
+
+    // Prepare toast container
+    initToastContainer();
     
     // Close settings menu when clicking outside
     document.addEventListener('click', function(event) {
@@ -612,6 +620,12 @@ async function loadOrders() {
         if (response.ok) {
             const data = await response.json();
             console.log('Orders received:', data.orders);
+            if (!ordersInitialized) {
+                data.orders.forEach(o => seenOrderIds.add(o.id));
+                ordersInitialized = true;
+            } else {
+                handleNewOrders(data.orders, currentDepartment);
+            }
             displayOrders(data.orders);
         } else {
             console.error('Failed to load orders, status:', response.status);
@@ -650,6 +664,85 @@ function stopAutoRefresh() {
         autoRefreshInterval = null;
         console.log('Auto-refresh stopped');
     }
+}
+
+// Detect and show toast for new orders from others
+function handleNewOrders(orders, department) {
+    if (!Array.isArray(orders) || orders.length === 0) return;
+    const newOrders = orders.filter(o => !seenOrderIds.has(o.id));
+    newOrders.forEach(o => seenOrderIds.add(o.id));
+
+    newOrders.forEach(order => {
+        if (currentUser && order.sent_by !== currentUser.id) {
+            showOrderToast(order, department);
+        }
+    });
+}
+
+function initToastContainer() {
+    if (toastContainer) return;
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'toastContainer';
+    toastContainer.style.position = 'fixed';
+    toastContainer.style.top = '20px';
+    toastContainer.style.right = '20px';
+    toastContainer.style.display = 'flex';
+    toastContainer.style.flexDirection = 'column';
+    toastContainer.style.gap = '10px';
+    toastContainer.style.zIndex = '9999';
+    document.body.appendChild(toastContainer);
+}
+
+function showOrderToast(order, department) {
+    if (!toastContainer) initToastContainer();
+
+    const roomMatch = (order.order_name || '').match(/Room\s+(.*)/i);
+    const roomText = roomMatch ? roomMatch[1] : (order.order_name || '');
+    const toast = document.createElement('div');
+    toast.className = 'order-toast';
+    toast.style.minWidth = '240px';
+    toast.style.maxWidth = '320px';
+    toast.style.background = 'var(--bg-secondary)';
+    toast.style.color = 'var(--text-primary)';
+    toast.style.border = '1px solid var(--border-primary)';
+    toast.style.borderRadius = '10px';
+    toast.style.boxShadow = '0 6px 14px var(--shadow-primary)';
+    toast.style.padding = '12px 14px';
+    toast.style.position = 'relative';
+    toast.style.overflow = 'hidden';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.style.position = 'absolute';
+    closeBtn.style.top = '6px';
+    closeBtn.style.right = '8px';
+    closeBtn.style.border = 'none';
+    closeBtn.style.background = 'transparent';
+    closeBtn.style.color = 'var(--text-primary)';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.fontSize = '14px';
+    closeBtn.addEventListener('click', () => {
+        toast.remove();
+    });
+
+    const title = document.createElement('div');
+    title.textContent = `${department} order`;
+    title.style.fontWeight = '700';
+    title.style.marginBottom = '4px';
+
+    const body = document.createElement('div');
+    body.textContent = `Room: ${roomText}`;
+    body.style.fontSize = '14px';
+    body.style.color = 'var(--text-secondary)';
+
+    toast.appendChild(closeBtn);
+    toast.appendChild(title);
+    toast.appendChild(body);
+    toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
 }
 
 // Display orders in the list
