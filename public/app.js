@@ -6,7 +6,7 @@ let currentDateFilter = null;
 let autoRefreshInterval = null;
 let isLoadingOrders = false; // prevent overlapping fetches
 let ordersInitialized = false;
-const AUTO_REFRESH_INTERVAL = 3000; // Refresh every 3 seconds
+const AUTO_REFRESH_INTERVAL = 30000; // Refresh
 
 // DOM elements
 const dashboardScreen = document.getElementById('dashboardScreen');
