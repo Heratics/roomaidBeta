@@ -1317,6 +1317,85 @@ app.get('/api/manager/users', authenticateToken, async (req, res) => {
 });
 
 /**
+ * PUT /api/manager/users/:id
+ * Update a user scoped to the manager's hotel (manager/supervisor/admin)
+ */
+app.put('/api/manager/users/:id', authenticateToken, async (req, res) => {
+  try {
+    const requester = req.user;
+    const allowedRoles = ['manager', 'supervisor', 'admin'];
+
+    if (!allowedRoles.includes(requester.role)) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const { id } = req.params;
+    const { firstName, lastName, username, password, role } = req.body;
+
+    if (!firstName || !lastName || !username) {
+      return res.status(400).json({ error: 'First name, last name, and username are required' });
+    }
+
+    if (role && !['employee', 'supervisor', 'manager', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    const hotelCode = requester.hotel_code || requester.hotelCode;
+
+    // Fetch target user and enforce hotel scoping for non-admins
+    const targetUser = await db.query(`
+      SELECT id, username, hotel_code FROM users WHERE id = ?
+    `, [id]);
+
+    if (targetUser.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (requester.role !== 'admin' && targetUser[0].hotel_code !== hotelCode) {
+      return res.status(403).json({ error: 'Access denied for this hotel' });
+    }
+
+    // Enforce unique username if changed
+    if (username !== targetUser[0].username) {
+      const existing = await db.query(`SELECT id FROM users WHERE username = ?`, [username]);
+      if (existing.length > 0) {
+        return res.status(400).json({ error: 'Username already exists' });
+      }
+    }
+
+    let updateQuery = `UPDATE users SET first_name = ?, last_name = ?, username = ?`;
+    const params = [firstName, lastName, username];
+
+    if (password && password.trim()) {
+      updateQuery += ', passwordHash = ?';
+      params.push(password.trim());
+    }
+
+    if (role) {
+      updateQuery += ', role = ?';
+      params.push(role);
+    }
+
+    updateQuery += ' WHERE id = ?';
+    params.push(id);
+
+    await db.query(updateQuery, params);
+
+    const updatedUser = await db.query(`
+      SELECT u.id, u.username, u.first_name, u.last_name, u.hotel_code, u.role, h.name as hotelName
+      FROM users u
+      LEFT JOIN hotels h ON u.hotel_code = h.code
+      WHERE u.id = ?
+    `, [id]);
+
+    res.json({ success: true, user: updatedUser[0] });
+  } catch (error) {
+    console.error('Manager update user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * POST /api/admin/hotels
  * Create a new hotel (admin only)
  * Requires authentication and admin role

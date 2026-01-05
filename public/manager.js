@@ -3,6 +3,7 @@ let authToken = null;
 let currentUser = null;
 let currentTab = 'users';
 let usersCache = [];
+let editingUserId = null;
 
 const root = document.getElementById('manager-root');
 const themeToggle = document.getElementById('themeToggle');
@@ -127,7 +128,7 @@ function renderDashboard() {
             <p>Hotel: ${hotelLabel}</p>
         </div>
         <div class="settings-bar">
-            <button id="logoutBtn" class="settings-btn">Logout</button>
+            <button id="backToDashboardBtn" class="settings-btn">Back to Main Dashboard</button>
         </div>
         <div class="manager-nav">
             <button id="usersTab" class="nav-btn active" data-tab="users">Users</button>
@@ -149,6 +150,7 @@ function renderDashboard() {
                             <th>Name</th>
                             <th>Username</th>
                             <th>Role</th>
+                            <th style="width: 120px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="usersTbody"></tbody>
@@ -161,6 +163,47 @@ function renderDashboard() {
                 <p>Reports for your hotel will appear here. Coming soon.</p>
             </div>
         </div>
+
+        <div id="editUserModal" class="modal" style="display:none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Edit User</h2>
+                    <button id="closeEditModalBtn" class="close-btn" aria-label="Close">&times;</button>
+                </div>
+                <form id="editUserForm" class="modal-form">
+                    <input type="hidden" id="editUserId">
+                    <div class="form-group">
+                        <label for="editFirstName">First Name</label>
+                        <input type="text" id="editFirstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editLastName">Last Name</label>
+                        <input type="text" id="editLastName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editUsername">Username</label>
+                        <input type="text" id="editUsername" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editPassword">Password (leave blank to keep)</label>
+                        <input type="password" id="editPassword" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label for="editRole">Role</label>
+                        <select id="editRole" required>
+                            <option value="employee">Employee</option>
+                            <option value="supervisor">Supervisor</option>
+                            <option value="manager">Manager</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; gap:12px; justify-content:flex-end;">
+                        <button type="button" class="btn-secondary" id="cancelEditBtn">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
     `;
 
     attachDashboardEvents();
@@ -169,13 +212,31 @@ function renderDashboard() {
 function attachDashboardEvents() {
     document.getElementById('usersTab')?.addEventListener('click', () => switchTab('users'));
     document.getElementById('reportsTab')?.addEventListener('click', () => switchTab('reports'));
-    document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+    document.getElementById('backToDashboardBtn')?.addEventListener('click', goToMainDashboard);
 
     const searchInput = document.getElementById('userSearch');
     if (searchInput) {
         searchInput.addEventListener('input', debounce(() => {
             loadUsers(searchInput.value.trim());
         }, 300));
+    }
+
+    const closeEditModalBtn = document.getElementById('closeEditModalBtn');
+    const cancelEditBtn = document.getElementById('cancelEditBtn');
+    const editUserForm = document.getElementById('editUserForm');
+    const usersTable = document.getElementById('usersTable');
+
+    if (closeEditModalBtn) closeEditModalBtn.addEventListener('click', closeEditModal);
+    if (cancelEditBtn) cancelEditBtn.addEventListener('click', closeEditModal);
+    if (editUserForm) editUserForm.addEventListener('submit', handleEditSubmit);
+    if (usersTable) {
+        usersTable.addEventListener('click', (e) => {
+            const target = e.target;
+            if (target && target.matches('.edit-user-btn')) {
+                const id = target.getAttribute('data-id');
+                openEditModal(Number(id));
+            }
+        });
     }
 }
 
@@ -210,7 +271,7 @@ async function loadUsers(search = '') {
         });
 
         if (response.status === 401 || response.status === 403) {
-            await handleLogout(true);
+            clearManagerSession();
             renderLogin();
             return;
         }
@@ -254,9 +315,90 @@ function renderUsersTable(users) {
                 <td>${fullName}</td>
                 <td>${user.username}</td>
                 <td><span class="pill">${user.role}</span></td>
+                <td>
+                    <button class="settings-btn edit-user-btn" data-id="${user.id}" style="padding:6px 10px;font-size:12px;">Edit</button>
+                </td>
             </tr>
         `;
     }).join('');
+}
+
+function openEditModal(userId) {
+    const modal = document.getElementById('editUserModal');
+    if (!modal) return;
+
+    const user = usersCache.find(u => u.id === userId);
+    if (!user) return;
+
+    editingUserId = userId;
+    document.getElementById('editUserId').value = userId;
+    document.getElementById('editFirstName').value = user.first_name || '';
+    document.getElementById('editLastName').value = user.last_name || '';
+    document.getElementById('editUsername').value = user.username || '';
+    document.getElementById('editPassword').value = '';
+    document.getElementById('editRole').value = user.role || 'employee';
+
+    modal.style.display = 'flex';
+}
+
+function closeEditModal() {
+    const modal = document.getElementById('editUserModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+async function handleEditSubmit(event) {
+    event.preventDefault();
+    if (!editingUserId) return;
+
+    const firstName = document.getElementById('editFirstName').value.trim();
+    const lastName = document.getElementById('editLastName').value.trim();
+    const username = document.getElementById('editUsername').value.trim();
+    const password = document.getElementById('editPassword').value;
+    const role = document.getElementById('editRole').value;
+
+    if (!firstName || !lastName || !username) {
+        alert('First name, last name, and username are required.');
+        return;
+    }
+
+    const payload = { firstName, lastName, username, role };
+    if (password && password.trim()) {
+        payload.password = password.trim();
+    }
+
+    try {
+        const response = await fetch(`/api/manager/users/${editingUserId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            const message = data?.error || 'Failed to update user';
+            alert(message);
+            return;
+        }
+
+        closeEditModal();
+        loadUsers();
+    } catch (error) {
+        console.error('Edit user error:', error);
+        alert('Error updating user. Please try again.');
+    }
+}
+
+function clearManagerSession() {
+    authToken = null;
+    currentUser = null;
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
 }
 
 function setUsersState({ loading = false, error = false }) {
@@ -267,25 +409,9 @@ function setUsersState({ loading = false, error = false }) {
     if (errorDiv) errorDiv.style.display = error ? 'block' : 'none';
 }
 
-// Logout
-async function handleLogout(silent = false) {
-    try {
-        await fetch('/api/auth/logout', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${authToken}` }
-        });
-    } catch (error) {
-        console.error('Logout error:', error);
-    }
-
-    authToken = null;
-    currentUser = null;
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-
-    if (!silent) {
-        renderLogin();
-    }
+// Navigation
+function goToMainDashboard() {
+    window.location.href = 'index.html';
 }
 
 // Theme helpers
