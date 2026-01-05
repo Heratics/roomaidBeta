@@ -75,7 +75,7 @@ class Auth {
         role: user.role
       },
       config.jwtSecret,
-      { expiresIn: '24h' }
+      { expiresIn: '7d' }
     );
   }
 

@@ -20,8 +20,8 @@ document.addEventListener('DOMContentLoaded', function() {
     autoDetectTheme();
     
     // Check if user already has an active session
-    const savedToken = sessionStorage.getItem('authToken');
-    const savedUser = sessionStorage.getItem('user');
+    const savedToken = localStorage.getItem('authToken');
+    const savedUser = localStorage.getItem('user');
     
     if (savedToken && savedUser) {
         // User is already logged in, redirect to dashboard
@@ -123,9 +123,9 @@ async function handleLogin(e) {
             currentToken = data.token;
             currentUser = data.user;
             
-            // Save to session storage
-            sessionStorage.setItem('authToken', currentToken);
-            sessionStorage.setItem('user', JSON.stringify(currentUser));
+            // Save to persistent storage for week-long sessions
+            localStorage.setItem('authToken', currentToken);
+            localStorage.setItem('user', JSON.stringify(currentUser));
             
             // Redirect to dashboard
             redirectToDashboard();

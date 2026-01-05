@@ -44,8 +44,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Check if user has an active session (like main app)
-    const savedToken = sessionStorage.getItem('authToken');
-    const savedUser = sessionStorage.getItem('user');
+    const savedToken = localStorage.getItem('authToken');
+    const savedUser = localStorage.getItem('user');
     
     if (savedToken && savedUser) {
         authToken = savedToken;
@@ -72,18 +72,7 @@ document.addEventListener('DOMContentLoaded', function() {
         showLoginForm();
     }
     
-    // Add beforeunload event to handle tab close
-    window.addEventListener('beforeunload', handleBeforeUnload);
 });
-
-/**
- * Handle beforeunload event (when user closes tab or navigates away)
- */
-function handleBeforeUnload(event) {
-    // Clear session storage when user closes tab or navigates away
-    sessionStorage.removeItem('authToken');
-    sessionStorage.removeItem('user');
-}
 
 /**
  * Throttle requests to prevent rate limiting
@@ -126,8 +115,8 @@ async function verifySession() {
         const data = await response.json();
         currentUser = data.user;
         
-        // Update session storage with fresh user data
-        sessionStorage.setItem('user', JSON.stringify(currentUser));
+        // Update persistent storage with fresh user data
+        localStorage.setItem('user', JSON.stringify(currentUser));
         
         return currentUser.role === 'admin';
     } catch (error) {
@@ -360,10 +349,10 @@ async function handleAdminLogin(event) {
         const result = await response.json();
         
         if (response.ok) {
-            // Store token in sessionStorage (like normal login)
+            // Store token persistently for week-long sessions
             authToken = result.token;
-            sessionStorage.setItem('authToken', authToken);
-            sessionStorage.setItem('user', JSON.stringify(result.user));
+            localStorage.setItem('authToken', authToken);
+            localStorage.setItem('user', JSON.stringify(result.user));
             
             // Check if user is admin
             if (result.user.role !== 'admin') {
@@ -405,7 +394,7 @@ async function handleAdminLogin(event) {
 async function checkAuth() {
     try {
         // Get token from localStorage or session
-        authToken = sessionStorage.getItem('authToken');
+        authToken = localStorage.getItem('authToken');
         
         if (!authToken) {
             // Redirect to login if no token
@@ -558,7 +547,8 @@ async function loadUsers(searchTerm = '', refresh = false, page = 1) {
             } else if (response.status === 401) {
                 showAlert('Session expired. Please login again.', 'error');
                 setTimeout(() => {
-                    sessionStorage.clear();
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('user');
                     window.location.href = '/login.html';
                 }, 2000);
                 return;
@@ -1240,9 +1230,9 @@ async function logout() {
     } catch (error) {
         console.error('Logout error:', error);
     } finally {
-        // Clear stored tokens from sessionStorage
-        sessionStorage.removeItem('authToken');
-        sessionStorage.removeItem('user');
+        // Clear stored tokens from persistent storage
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
         
         // Redirect to login
         window.location.href = '/login.html';

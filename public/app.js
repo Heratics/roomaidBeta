@@ -95,8 +95,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // Check if user has an active session
-    const savedToken = sessionStorage.getItem('authToken');
-    const savedUser = sessionStorage.getItem('user');
+    const savedToken = localStorage.getItem('authToken');
+    const savedUser = localStorage.getItem('user');
     
     if (savedToken && savedUser) {
         currentToken = savedToken;
@@ -536,8 +536,8 @@ async function handleLogout() {
     // Clear state and session
     currentToken = null;
     currentUser = null;
-    sessionStorage.removeItem('authToken');
-    sessionStorage.removeItem('user');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
     
     // Redirect to login page
     window.location.href = 'login.html';
