@@ -37,26 +37,35 @@ function renderLogin() {
 
     root.innerHTML = `
         <div class="screen">
-            <div class="login-container" style="width:100%;max-width:420px;">
-                <div class="logo-container" style="margin-bottom: 0.5rem;">
-                    <h2 style="text-align:center;">Manager Login</h2>
-                    <p style="text-align:center;color:var(--text-secondary);">Access your hotel's team</p>
+            <div class="login-container">
+                <div class="login-header">
+                    <div class="brand-container">
+                        <img src="rubbletech-removebg-preview.png" alt="RoomAid Logo" class="roomaid-logo-small" onerror="this.style.display='none';">
+                        <div class="brand-text">
+                            <h1>RoomAid</h1>
+                            <p>by Rubble Tech</p>
+                        </div>
+                    </div>
+                    <p>Manager Login</p>
                 </div>
-                <form id="managerLoginForm">
+                <form id="managerLoginForm" class="login-form">
                     <div class="form-group">
                         <label for="managerUsername">Username</label>
                         <input type="text" id="managerUsername" name="username" required>
                     </div>
                     <div class="form-group">
                         <label for="managerPassword">Password</label>
-                        <input type="password" id="managerPassword" name="password" required>
+                        <div class="password-container">
+                            <input type="password" id="managerPassword" name="password" required>
+                            <button type="button" id="managerTogglePassword" class="password-toggle">🙈</button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="managerHotelCode">Hotel Code</label>
                         <input type="text" id="managerHotelCode" name="hotelCode" required placeholder="HOTEL001">
                     </div>
-                    <button class="btn-primary" type="submit" style="width:100%;">Login</button>
-                    <div id="managerLoginError" class="alert alert-error" style="margin-top:12px; display:none;"></div>
+                    <button class="btn btn-primary" type="submit">Sign In</button>
+                    <div id="managerLoginError" class="error-message" style="display:none;"></div>
                 </form>
             </div>
         </div>
@@ -65,6 +74,16 @@ function renderLogin() {
     const form = document.getElementById('managerLoginForm');
     if (form) {
         form.addEventListener('submit', handleManagerLogin);
+    }
+
+    const togglePasswordBtn = document.getElementById('managerTogglePassword');
+    const passwordInput = document.getElementById('managerPassword');
+    if (togglePasswordBtn && passwordInput) {
+        togglePasswordBtn.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            togglePasswordBtn.textContent = type === 'password' ? '🙈' : '👁️';
+        });
     }
 }
 
@@ -165,13 +184,16 @@ function renderDashboard() {
                         <h3 style="margin:0 0 6px 0;">Daily Report</h3>
                         <p style="color:var(--text-secondary); margin:0;">Export all orders for your hotel on a selected day.</p>
                     </div>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                        <div class="form-group" style="margin:0;">
-                            <label for="reportDate" style="margin-bottom:6px; display:block;">Date</label>
-                            <input type="date" id="reportDate" style="min-width:180px;">
+                        <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;">
+                            <div class="form-group" style="margin:0;">
+                                <label for="reportDate" style="margin-bottom:6px; display:block;">Date</label>
+                                <input type="date" id="reportDate" style="min-width:200px;">
+                            </div>
+                            <button id="downloadReportBtn" class="btn btn-primary" style="height:44px; padding:0 18px; border-radius:10px; display:flex; align-items:center; gap:8px; box-shadow:0 6px 14px var(--shadow-primary);">
+                                <span>⬇️</span>
+                                <span>Download Excel (CSV)</span>
+                            </button>
                         </div>
-                        <button id="downloadReportBtn" class="btn-primary" style="height:44px;">Download Excel (CSV)</button>
-                    </div>
                 </div>
                 <div id="reportStatus" class="alert alert-error" style="display:none; margin-top:12px;"></div>
             </div>
