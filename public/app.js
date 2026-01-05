@@ -6,6 +6,7 @@ let currentDateFilter = null;
 let autoRefreshInterval = null;
 let isLoadingOrders = false; // prevent overlapping fetches
 let ordersInitialized = false;
+let lastOrders = [];
 const AUTO_REFRESH_INTERVAL = 30000; // Refresh
 
 // DOM elements
@@ -626,14 +627,16 @@ async function loadOrders() {
             } else {
                 handleNewOrders(data.orders, currentDepartment);
             }
-            displayOrders(data.orders);
+            lastOrders = data.orders || [];
+            displayOrders(lastOrders);
         } else {
             console.error('Failed to load orders, status:', response.status);
-            displayOrders([]);
+            // Keep existing orders to avoid flicker when a single fetch fails
+            displayOrders(lastOrders);
         }
     } catch (error) {
         console.error('Error loading orders:', error);
-        displayOrders([]);
+        displayOrders(lastOrders);
     } finally {
         isLoadingOrders = false;
     }
