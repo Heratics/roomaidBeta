@@ -1566,7 +1566,15 @@ function toggleSettingsMenu() {
 }
 
 function openManagerDashboard() {
-    window.location.href = 'manager.html';
+    try {
+        const win = window.open('manager.html', '_blank', 'noopener,noreferrer');
+        if (win && typeof win.focus === 'function') {
+            win.focus();
+        }
+    } catch (e) {
+        // Fallback to same-tab navigation if popup blocked
+        window.location.href = 'manager.html';
+    }
 }
 
 // Toggle between light and dark themes
