@@ -10,6 +10,7 @@ let lastOrders = [];
 const AUTO_REFRESH_INTERVAL = 30000; // Refresh
 let notificationsInterval = null;
 let seenNotificationIds = new Set();
+let newOrdersPollingInterval = null;
 let serviceWorkerReady = false;
 let pushSubscription = null;
 
@@ -698,20 +699,118 @@ function stopAutoRefresh() {
 
 // Start polling for pending order notifications
 function startNotificationsPolling() {
-    if (notificationsInterval) {
-        clearInterval(notificationsInterval);
-    }
-    
-    // Poll every 30 seconds for pending notifications
+    if (notificationsInterval) clearInterval(notificationsInterval);
+    if (newOrdersPollingInterval) clearInterval(newOrdersPollingInterval);
+
+    // Poll every 10 seconds for newly created orders
+    newOrdersPollingInterval = setInterval(() => {
+        if (currentToken && dashboardScreen && dashboardScreen.style.display !== 'none') {
+            checkNewOrderNotifications();
+        }
+    }, 10000);
+
+    // Poll every 30 seconds for pending/overdue notifications
     notificationsInterval = setInterval(() => {
         if (currentToken && dashboardScreen && dashboardScreen.style.display !== 'none') {
             checkPendingNotifications();
         }
     }, 30000);
-    
+
     // Also check immediately
+    checkNewOrderNotifications();
     checkPendingNotifications();
     console.log('Notifications polling started');
+}
+
+// Check for newly created orders
+async function checkNewOrderNotifications() {
+    try {
+        const response = await fetch('/api/notifications/new-orders', {
+            headers: {
+                'Authorization': `Bearer ${currentToken}`
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            if (data.notifications && Array.isArray(data.notifications)) {
+                data.notifications.forEach(notif => {
+                    if (!seenNotificationIds.has(`${notif.id}-new`)) {
+                        seenNotificationIds.add(`${notif.id}-new`);
+                        showNewOrderNotification(notif);
+                        sendPushNotificationToDevice(notif);
+                    }
+                });
+            }
+        }
+    } catch (error) {
+        console.error('Error checking new order notifications:', error);
+    }
+}
+
+// Show notification for newly created order
+function showNewOrderNotification(notification) {
+    if (!toastContainer) initToastContainer();
+
+    const roomMatch = (notification.order_name || '').match(/Room\s+(.*)/i);
+    const roomText = roomMatch ? roomMatch[1] : (notification.order_name || '');
+
+    const toast = document.createElement('div');
+    toast.className = 'new-order-toast';
+    toast.style.minWidth = '280px';
+    toast.style.maxWidth = '360px';
+    toast.style.background = '#10b981'; // Green for new orders
+    toast.style.color = '#fff';
+    toast.style.border = 'none';
+    toast.style.borderRadius = '10px';
+    toast.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)';
+    toast.style.padding = '12px 14px';
+    toast.style.position = 'relative';
+    toast.style.overflow = 'hidden';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.style.position = 'absolute';
+    closeBtn.style.top = '6px';
+    closeBtn.style.right = '8px';
+    closeBtn.style.border = 'none';
+    closeBtn.style.background = 'transparent';
+    closeBtn.style.color = '#fff';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.fontSize = '14px';
+    closeBtn.addEventListener('click', () => {
+        toast.remove();
+    });
+
+    const title = document.createElement('div');
+    title.textContent = '🆕 New Order Received!';
+    title.style.fontWeight = '700';
+    title.style.marginBottom = '6px';
+    title.style.fontSize = '14px';
+
+    const body = document.createElement('div');
+    body.textContent = `${notification.department}: Room ${roomText}`;
+    body.style.fontSize = '13px';
+    body.style.marginBottom = '4px';
+    body.style.opacity = '0.95';
+
+    const creator = document.createElement('div');
+    creator.textContent = `By: ${notification.creatorName}`;
+    creator.style.fontSize = '12px';
+    creator.style.opacity = '0.85';
+
+    toast.appendChild(closeBtn);
+    toast.appendChild(title);
+    toast.appendChild(body);
+    toast.appendChild(creator);
+    toastContainer.appendChild(toast);
+
+    // Auto-dismiss after 6 seconds
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 6000);
 }
 
 // Check for pending notifications (unclaimed orders)
@@ -1011,13 +1110,14 @@ function sendPushNotificationToDevice(notification) {
         const roomText = roomMatch ? roomMatch[1] : (notification.order_name || '');
 
         const levelTitles = {
+            0: `🆕 New Order Received!`,
             1: `⏰ Pending Order (3 mins)`,
             2: `⏰ Pending Order (5 mins)`,
             3: `⚠️ Unclaimed Order (8 mins)`,
             4: `🚨 URGENT: Unclaimed Order (10 mins)`
         };
 
-        const title = levelTitles[notification.level] || `⏰ Pending Order`;
+        const title = levelTitles[notification.level] || `🆕 New Order`;
         const message = `${notification.department}: Room ${roomText}`;
 
         // Check if service worker has push manager

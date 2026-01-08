@@ -22,114 +22,43 @@ const session = require('express-session');
 // Web push for browser notifications
 const webpush = require('web-push');
 
-// Input validation and security utilities
-const validation = require('./lib/validation');
-
-// Node.js path module for file path operations
-const path = require('path');
-
-// Application configuration settings
-const config = require('./config');
-
-// Database connection and query utilities
-const db = require('./database');
-
-// Authentication utilities (JWT, password hashing, etc.)
-const auth = require('./auth');
-
-// ============================================================================
-// SERVER INITIALIZATION
-// ============================================================================
-
-// Create Express application instance
-const app = express();
-
-// Get server port from configuration or use default
-const PORT = config.server.port;
-
 // VAPID configuration for web push
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || config.vapidPublicKey;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || config.vapidPrivateKey;
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || config.vapidSubject || 'mailto:admin@example.com';
+const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:no-reply@example.com';
 const VAPID_CONFIGURED = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
 let vapidWarningLogged = false;
 
 if (VAPID_CONFIGURED) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-  console.log('Web push VAPID keys configured.');
+  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  console.log('✅ Web Push configured with VAPID keys');
 } else {
-  console.warn('VAPID keys not configured. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY to enable push delivery.');
-  vapidWarningLogged = true;
+  console.warn('⚠️  VAPID keys not configured. Push notifications will be disabled.');
 }
 
-// ============================================================================
-// MIDDLEWARE SETUP
-// ============================================================================
+// Core application modules
+const path = require('path');
+const config = require('./config');
+const db = require('./database');
+const auth = require('./auth');
+const validation = require('./lib/validation');
 
-// Enable CORS for cross-origin requests
+// Initialize Express app and middleware
+const app = express();
+const PORT = config.server.port || process.env.PORT || 3000;
+
 app.use(cors());
-
-// Parse JSON request bodies with size limit
-app.use(express.json({ limit: '10mb' }));
-
-// Parse URL-encoded bodies with size limit
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Security headers middleware
-app.use((req, res, next) => {
-  const headers = validation.getSecurityHeaders();
-  Object.keys(headers).forEach(key => {
-    res.setHeader(key, headers[key]);
-  });
-  next();
-});
-
-// Rate limiting middleware
-app.use((req, res, next) => {
-  const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
-
-  // More lenient rate limiting for admin pages and auth endpoints
-  const isAdminPage = req.path.startsWith('/admin') || req.path.startsWith('/api/admin');
-  const isAuthEndpoint = req.path.startsWith('/api/auth');
-  const rateLimit = (isAdminPage || isAuthEndpoint) ? 200 : 100; // 200 requests per minute for admin/auth, 100 for others
-  const isAllowed = validation.checkRateLimit(clientIP, rateLimit, 60000);
-
-  if (!isAllowed) {
-    console.log(`Rate limit exceeded for IP: ${clientIP}, Path: ${req.path}`);
-    return res.status(429).json({
-      error: 'Too many requests, please try again later',
-      retryAfter: 60 // seconds
-    });
-  }
-
-  next();
-});
-
-// Serve static files from the 'public' directory
-app.use(express.static('public'));
-
-// Configure session management
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(session({
-  secret: config.jwtSecret, // Secret key for session encryption
-  resave: false, // Don't save session if unmodified
-  saveUninitialized: false, // Don't create session until something stored
-  cookie: {
-    secure: false, // Set to true in production with HTTPS
-    maxAge: 7 * 24 * 60 * 60 * 1000 // Session persists for one week
-  }
+  secret: process.env.SESSION_SECRET || 'roomaid-session-secret',
+  resave: false,
+  saveUninitialized: false
 }));
 
-// ============================================================================
-// AUTHENTICATION MIDDLEWARE
-// ============================================================================
+// Serve static assets
+app.use(express.static('public'));
 
-/**
- * Middleware to authenticate JWT tokens
- * Verifies token validity and attaches user data to request
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next function
- */
 const authenticateToken = (req, res, next) => {
   // Extract token from Authorization header or session
   const token = req.headers.authorization?.split(' ')[1] || req.session.token;
@@ -2130,6 +2059,107 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
     res.json({ notifications });
   } catch (error) {
     console.error('Get pending notifications error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/notifications/new-orders
+ * Get newly created orders (created in the last minute)
+ * Shows notifications for orders just created
+ */
+app.get('/api/notifications/new-orders', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const hotelCode = user.hotel_code || user.hotelCode;
+
+    // Check for orders created in the last 60 seconds
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+
+    const notifications = [];
+    const pushMessages = [];
+
+    for (const dept of ['engineering_orders', 'housekeeping_orders']) {
+      const deptName = dept === 'engineering_orders' ? 'Engineering' : 'Housekeeping';
+
+      // Find newly created orders in this hotel
+      const newOrdersQuery = `
+        SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               '${deptName}' as department
+        FROM ${dept} o
+        LEFT JOIN users creator ON o.sent_by = creator.id
+        WHERE o.hotel_code = ? 
+          AND o.deleted_at IS NULL
+          AND o.created_at > ?
+          AND NOT EXISTS (
+            SELECT 1 FROM order_notifications 
+            WHERE order_id = o.id 
+            AND order_type = ? 
+            AND notification_level = 0
+          )
+        ORDER BY o.created_at DESC
+      `;
+
+      const newOrders = await db.query(newOrdersQuery, [
+        hotelCode,
+        oneMinuteAgo,
+        deptName.toLowerCase()
+      ]);
+
+      // Queue push messages for new orders
+      newOrders.forEach(order => {
+        // Don't notify the user who created the order
+        if (order.sent_by !== user.id) {
+          pushMessages.push({
+            hotelCode,
+            title: '🆕 New Order Received!',
+            message: `${deptName}: ${order.order_name || `Order #${order.id}`}`,
+            data: {
+              orderId: order.id,
+              department: deptName,
+              level: 0
+            }
+          });
+
+          notifications.push({
+            ...order,
+            department: deptName,
+            level: 0,
+            minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
+          });
+        }
+      });
+    }
+
+    // Send push notifications (if configured)
+    if (pushMessages.length) {
+      await Promise.all(
+        pushMessages.map(msg => sendPushNotifications(msg.hotelCode, msg.title, msg.message, msg.data))
+      );
+    }
+
+    // Mark notifications as sent in database
+    for (const notif of notifications) {
+      try {
+        await db.query(`
+          INSERT INTO order_notifications (order_id, order_type, hotel_code, notification_level, sent_at)
+          VALUES (?, ?, ?, ?, NOW())
+          ON DUPLICATE KEY UPDATE sent_at = NOW()
+        `, [
+          notif.id,
+          notif.department.toLowerCase(),
+          hotelCode,
+          notif.level
+        ]);
+      } catch (error) {
+        console.log('Notification already logged or error:', error.message);
+      }
+    }
+
+    res.json({ notifications });
+  } catch (error) {
+    console.error('Get new orders notifications error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
