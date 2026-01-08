@@ -112,23 +112,36 @@ document.addEventListener('DOMContentLoaded', function() {
     const savedToken = localStorage.getItem('authToken');
     const savedUser = localStorage.getItem('user');
     
+    console.log('🔐 Session check:', { hasToken: !!savedToken, hasUser: !!savedUser });
+    
     if (savedToken && savedUser) {
-        currentToken = savedToken;
-        currentUser = JSON.parse(savedUser);
-        const isPrivileged = currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'supervisor');
-        if (logsMenuItem && isPrivileged) {
-            logsMenuItem.style.display = 'flex';
+        try {
+            currentToken = savedToken;
+            currentUser = JSON.parse(savedUser);
+            console.log('✅ Session restored for:', currentUser.username);
+            const isPrivileged = currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'supervisor');
+            if (logsMenuItem && isPrivileged) {
+                logsMenuItem.style.display = 'flex';
+            }
+            if (managerMenuItem && isPrivileged) {
+                managerMenuItem.style.display = 'flex';
+            }
+            
+            // Initialize push notifications
+            initializePushNotifications();
+            
+            showDashboard();
+        } catch (error) {
+            console.error('Error parsing saved user data:', error);
+            // Clear corrupted session data
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+            window.location.href = 'login.html';
+            return;
         }
-        if (managerMenuItem && isPrivileged) {
-            managerMenuItem.style.display = 'flex';
-        }
-        
-        // Initialize push notifications
-        initializePushNotifications();
-        
-        showDashboard();
     } else {
         // User not logged in, redirect to login page
+        console.log('❌ No active session found, redirecting to login');
         window.location.href = 'login.html';
         return;
     }

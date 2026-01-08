@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     autoDetectTheme();
     setupThemeToggle();
     bootstrapSession();
-    window.addEventListener('beforeunload', clearManagerSession);
+    // Don't clear session on tab close - let localStorage persist the session
 });
 
 function bootstrapSession() {
@@ -22,10 +22,18 @@ function bootstrapSession() {
     const savedUser = localStorage.getItem('user');
 
     if (savedToken && savedUser) {
-        authToken = savedToken;
-        currentUser = JSON.parse(savedUser);
-        renderDashboard();
-        loadUsers();
+        try {
+            authToken = savedToken;
+            currentUser = JSON.parse(savedUser);
+            renderDashboard();
+            loadUsers();
+        } catch (error) {
+            console.error('Error parsing saved user data:', error);
+            // Clear corrupted session data and show login
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+            renderLogin();
+        }
     } else {
         renderLogin();
     }
