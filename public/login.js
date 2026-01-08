@@ -142,16 +142,9 @@ async function handleLogin(e) {
 
 // Redirect to dashboard page
 function redirectToDashboard() {
-    // Check user role and redirect accordingly
-    const allowedManagerRoles = ['manager', 'supervisor', 'admin'];
-    
-    if (currentUser && allowedManagerRoles.includes(currentUser.role)) {
-        // Redirect managers to manager dashboard
-        window.location.href = 'manager.html';
-    } else {
-        // Redirect employees to main dashboard
-        window.location.href = 'index.html';
-    }
+    // All users (including managers) go to the main dashboard
+    // Managers can access the manager view from the settings menu
+    window.location.href = 'index.html';
 }
 
 // Show login error message
