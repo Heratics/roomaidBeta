@@ -166,7 +166,7 @@ function setupEventListeners() {
         });
     });
     
-    // Date filter - default to today's date in correct YYYY-MM-DD format
+    // Date filter - initialize input to today but don't filter by default
     if (dateFilter) {
         const today = new Date();
         const year = today.getFullYear();
@@ -175,7 +175,8 @@ function setupEventListeners() {
         const todayFormatted = `${year}-${month}-${day}`; // Correct YYYY-MM-DD format for input type="date"
         
         dateFilter.value = todayFormatted;
-        currentDateFilter = todayFormatted;
+        // Don't set currentDateFilter by default - show all orders unless user filters
+        currentDateFilter = null;
         
         dateFilter.addEventListener('change', handleDateFilter);
     }
