@@ -737,11 +737,22 @@ function showPendingOrderNotification(notification) {
     toast.className = 'pending-order-toast';
     toast.style.minWidth = '280px';
     toast.style.maxWidth = '360px';
-    toast.style.background = notification.level === 2 ? '#d32f2f' : '#f57c00'; // Red for level 2, orange for level 1
+    
+    // Determine background color based on notification level
+    const levelColors = {
+        1: '#f59e0b', // Yellow for 3 mins
+        2: '#ff8c00', // Orange for 5 mins
+        3: '#dc2626', // Red for 8 mins
+        4: '#7f1d1d'  // Dark red for 10+ mins
+    };
+    
+    toast.style.background = levelColors[notification.level] || '#f57c00';
     toast.style.color = '#fff';
     toast.style.border = 'none';
     toast.style.borderRadius = '10px';
-    toast.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)';
+    toast.style.boxShadow = notification.level === 4 
+        ? '0 6px 20px rgba(127, 29, 29, 0.4)' 
+        : '0 6px 20px rgba(0,0,0,0.3)';
     toast.style.padding = '12px 14px';
     toast.style.position = 'relative';
     toast.style.overflow = 'hidden';
@@ -761,9 +772,13 @@ function showPendingOrderNotification(notification) {
     });
     
     const title = document.createElement('div');
-    title.textContent = notification.level === 2 
-        ? '🚨 URGENT: Unclaimed Order (8 mins)' 
-        : '⏰ Pending Order (3 mins)';
+    const levelTitles = {
+        1: '⏰ Pending Order (3 mins)',
+        2: '⏰ Pending Order (5 mins)',
+        3: '⚠️ Unclaimed Order (8 mins)',
+        4: '🚨 URGENT: Unclaimed Order (10 mins)'
+    };
+    title.textContent = levelTitles[notification.level] || '⏰ Pending Order';
     title.style.fontWeight = '700';
     title.style.marginBottom = '6px';
     title.style.fontSize = '14px';
@@ -777,7 +792,7 @@ function showPendingOrderNotification(notification) {
     const creator = document.createElement('div');
     creator.textContent = `By: ${notification.creatorName}`;
     creator.style.fontSize = '12px';
-    body.style.opacity = '0.85';
+    creator.style.opacity = '0.85';
     
     toast.appendChild(closeBtn);
     toast.appendChild(title);
@@ -785,8 +800,14 @@ function showPendingOrderNotification(notification) {
     toast.appendChild(creator);
     toastContainer.appendChild(toast);
     
-    // Auto-dismiss after 6 seconds for level 1, 8 seconds for level 2
-    const duration = notification.level === 2 ? 8000 : 6000;
+    // Auto-dismiss timing: longer for more urgent levels
+    const durations = {
+        1: 6000,  // 6 seconds for 3 mins
+        2: 7000,  // 7 seconds for 5 mins
+        3: 8000,  // 8 seconds for 8 mins
+        4: 10000  // 10 seconds for 10+ mins
+    };
+    const duration = durations[notification.level] || 6000;
     setTimeout(() => {
         if (toast.parentElement) {
             toast.remove();
@@ -931,7 +952,7 @@ async function saveSubscriptionToServer(subscription) {
                 'Authorization': `Bearer ${currentToken}`
             },
             body: JSON.stringify({
-                subscription: subscription,
+                subscription: subscription.toJSON(),
                 userId: currentUser.id,
                 username: currentUser.username
             })
@@ -975,10 +996,14 @@ function sendPushNotificationToDevice(notification) {
         const roomMatch = (notification.order_name || '').match(/Room\s+(.*)/i);
         const roomText = roomMatch ? roomMatch[1] : (notification.order_name || '');
 
-        const title = notification.level === 2
-            ? `🚨 URGENT: Unclaimed Order (8 mins)`
-            : `⏰ Pending Order (3 mins)`;
+        const levelTitles = {
+            1: `⏰ Pending Order (3 mins)`,
+            2: `⏰ Pending Order (5 mins)`,
+            3: `⚠️ Unclaimed Order (8 mins)`,
+            4: `🚨 URGENT: Unclaimed Order (10 mins)`
+        };
 
+        const title = levelTitles[notification.level] || `⏰ Pending Order`;
         const message = `${notification.department}: Room ${roomText}`;
 
         // Check if service worker has push manager
@@ -1127,6 +1152,30 @@ function createOrderCard(order) {
     const isReceived = Boolean(order.assigned_to) && !isCompleted;
     const isPending = !Boolean(order.assigned_to) && !isCompleted;
     
+    // Check if order is overdue (pending for more than 3 minutes)
+    // Progressive urgency: 3 mins, 5 mins, 8 mins, 10 mins (urgent)
+    let isOverdue = false;
+    let overdueLevel = 0; // 0: not overdue, 1: 3 mins, 2: 5 mins, 3: 8 mins, 4: 10 mins (urgent)
+    if (isPending && order.created_at) {
+        const createdTime = new Date(order.created_at);
+        const now = new Date();
+        const diffMs = now - createdTime;
+        const diffMinutes = Math.floor(diffMs / 60000);
+        
+        if (diffMinutes >= 3) {
+            isOverdue = true;
+            if (diffMinutes >= 10) {
+                overdueLevel = 4; // Urgent
+            } else if (diffMinutes >= 8) {
+                overdueLevel = 3;
+            } else if (diffMinutes >= 5) {
+                overdueLevel = 2;
+            } else {
+                overdueLevel = 1;
+            }
+        }
+    }
+    
     // Add appropriate CSS classes for styling
     card.className = `order-card ${isCompleted ? 'completed' : isReceived ? 'received' : 'pending'}`;
     
@@ -1165,7 +1214,12 @@ function createOrderCard(order) {
     
     card.innerHTML = `
         <div class="order-header">
-            <div class="order-title">Room ${roomNumber}</div>
+            <div class="order-title">
+                Room ${roomNumber}
+                ${isOverdue ? `<span class="overdue-badge overdue-level-${overdueLevel}">
+                    ${overdueLevel === 4 ? '🚨 URGENT: 10+ mins' : overdueLevel === 3 ? '⚠️ 8 mins' : overdueLevel === 2 ? '⏰ 5 mins' : '⏰ 3 mins'}
+                </span>` : ''}
+            </div>
             <div class="order-actions">
                 ${!isCompleted && !isReceived ? `<button class="btn btn-primary receive-btn" data-order-id="${escapeHtml(order.id)}">Receive</button>` : ''}
                 ${isReceived && !isCompleted ? `<button class="btn btn-success complete-btn" data-order-id="${escapeHtml(order.id)}">Complete</button>` : ''}

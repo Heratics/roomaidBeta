@@ -886,6 +886,67 @@ body {
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--text-accent);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Overdue badge styling */
+.overdue-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    animation: pulse-warning 2s ease-in-out infinite;
+}
+
+/* Level 1: 3 minutes - Yellow warning */
+.overdue-badge.overdue-level-1 {
+    background-color: #f59e0b;
+    color: #1f2937;
+}
+
+/* Level 2: 5 minutes - Orange warning */
+.overdue-badge.overdue-level-2 {
+    background-color: #ff8c00;
+    color: white;
+}
+
+/* Level 3: 8 minutes - Red warning */
+.overdue-badge.overdue-level-3 {
+    background-color: #dc2626;
+    color: white;
+}
+
+/* Level 4: 10+ minutes - Urgent red with stronger pulse */
+.overdue-badge.overdue-level-4 {
+    background-color: #7f1d1d;
+    color: #fca5a5;
+    animation: pulse-urgent 1s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes pulse-urgent {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+    }
+    50% {
+        opacity: 0.8;
+        box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.3);
+    }
 }
 
 /* Order metadata (date, creator) styling */

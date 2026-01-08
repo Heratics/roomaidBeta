@@ -1878,8 +1878,8 @@ app.post('/api/seed', async (req, res) => {
 /**
  * GET /api/notifications/pending
  * Get pending notifications for unclaimed orders
- * Checks for orders not received after 3 minutes and 8 minutes
- * All roles get notified at 3 minutes; supervisors/managers/admins also get an 8-minute escalation
+ * Checks for orders not received after 3, 5, 8, and 10 minutes
+ * Progressive escalation: all roles at 3 mins, 5 mins, 8 mins, and urgent 10 mins for supervisors/managers/admins
  */
 app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
   try {
@@ -1893,15 +1893,17 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
     for (const dept of ['engineering_orders', 'housekeeping_orders']) {
       const deptName = dept === 'engineering_orders' ? 'Engineering' : 'Housekeeping';
 
-      // Find orders created more than 3 minutes ago that have not been received
+      // Find orders created at different time intervals for progressive escalation
       const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000);
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
       const eightMinAgo = new Date(Date.now() - 8 * 60 * 1000);
+      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
 
       // Level 1 notifications (3 minutes): for all employees in the hotel
       const level1Query = `
         SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
                COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
-               'Engineering' as department
+               '${deptName}' as department
         FROM ${dept} o
         LEFT JOIN users creator ON o.sent_by = creator.id
         WHERE o.hotel_code = ? 
@@ -1923,11 +1925,11 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
         deptName.toLowerCase()
       ]);
 
-      // Level 2 notifications (8 minutes): for managers and supervisors
+      // Level 2 notifications (5 minutes): for all employees
       const level2Query = `
         SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
                COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
-               'Engineering' as department
+               '${deptName}' as department
         FROM ${dept} o
         LEFT JOIN users creator ON o.sent_by = creator.id
         WHERE o.hotel_code = ? 
@@ -1945,11 +1947,63 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
 
       const level2Orders = await db.query(level2Query, [
         hotelCode,
+        fiveMinAgo,
+        deptName.toLowerCase()
+      ]);
+
+      // Level 3 notifications (8 minutes): for supervisors and managers
+      const level3Query = `
+        SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               '${deptName}' as department
+        FROM ${dept} o
+        LEFT JOIN users creator ON o.sent_by = creator.id
+        WHERE o.hotel_code = ? 
+          AND o.assigned_to IS NULL 
+          AND o.deleted_at IS NULL
+          AND o.created_at <= ?
+          AND NOT EXISTS (
+            SELECT 1 FROM order_notifications 
+            WHERE order_id = o.id 
+            AND order_type = ? 
+            AND notification_level = 3
+          )
+        ORDER BY o.created_at ASC
+      `;
+
+      const level3Orders = await db.query(level3Query, [
+        hotelCode,
         eightMinAgo,
         deptName.toLowerCase()
       ]);
 
-      // Queue push messages for both levels (these are sent to appropriate roles in sendPushNotifications)
+      // Level 4 notifications (10 minutes): URGENT for supervisors and managers
+      const level4Query = `
+        SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               '${deptName}' as department
+        FROM ${dept} o
+        LEFT JOIN users creator ON o.sent_by = creator.id
+        WHERE o.hotel_code = ? 
+          AND o.assigned_to IS NULL 
+          AND o.deleted_at IS NULL
+          AND o.created_at <= ?
+          AND NOT EXISTS (
+            SELECT 1 FROM order_notifications 
+            WHERE order_id = o.id 
+            AND order_type = ? 
+            AND notification_level = 4
+          )
+        ORDER BY o.created_at ASC
+      `;
+
+      const level4Orders = await db.query(level4Query, [
+        hotelCode,
+        tenMinAgo,
+        deptName.toLowerCase()
+      ]);
+
+      // Queue push messages for all levels
       level1Orders.forEach(order => {
         pushMessages.push({
           hotelCode,
@@ -1966,7 +2020,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
       level2Orders.forEach(order => {
         pushMessages.push({
           hotelCode,
-          title: '🚨 URGENT: Unclaimed Order (8 mins)',
+          title: '⏰ Pending Order (5 mins)',
           message: `${deptName}: ${order.order_name || `Order #${order.id}`}`,
           data: {
             orderId: order.id,
@@ -1976,10 +2030,36 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
         });
       });
 
+      level3Orders.forEach(order => {
+        pushMessages.push({
+          hotelCode,
+          title: '⚠️ Unclaimed Order (8 mins)',
+          message: `${deptName}: ${order.order_name || `Order #${order.id}`}`,
+          data: {
+            orderId: order.id,
+            department: deptName,
+            level: 3
+          }
+        });
+      });
+
+      level4Orders.forEach(order => {
+        pushMessages.push({
+          hotelCode,
+          title: '🚨 URGENT: Unclaimed Order (10 mins)',
+          message: `${deptName}: ${order.order_name || `Order #${order.id}`}`,
+          data: {
+            orderId: order.id,
+            department: deptName,
+            level: 4
+          }
+        });
+      });
+
       // Determine which notifications to send based on user role
       let userNotifications = [];
 
-      // All roles now get the 3-minute alert so managers/admins are also notified
+      // All roles get 3-minute and 5-minute alerts
       if (['employee', 'supervisor', 'manager', 'admin'].includes(user.role)) {
         userNotifications = level1Orders.map(order => ({
           ...order,
@@ -1987,15 +2067,33 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
           level: 1,
           minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
         }));
-      }
 
-      if (['supervisor', 'manager', 'admin'].includes(user.role)) {
-        // Managers, supervisors, and admins get the escalated 8-minute alert
         userNotifications = userNotifications.concat(
           level2Orders.map(order => ({
             ...order,
             department: deptName,
             level: 2,
+            minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
+          }))
+        );
+      }
+
+      // Managers, supervisors, and admins get the 8-minute and 10-minute alerts
+      if (['supervisor', 'manager', 'admin'].includes(user.role)) {
+        userNotifications = userNotifications.concat(
+          level3Orders.map(order => ({
+            ...order,
+            department: deptName,
+            level: 3,
+            minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
+          }))
+        );
+
+        userNotifications = userNotifications.concat(
+          level4Orders.map(order => ({
+            ...order,
+            department: deptName,
+            level: 4,
             minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
           }))
         );
