@@ -946,7 +946,7 @@ function showPendingOrderNotification(notification) {
 // ============================================================================
 
 /**
- * Initialize push notifications
+ * Initialize push notifications with Firebase Cloud Messaging
  * Register service worker and request notification permissions
  */
 async function initializePushNotifications() {
@@ -964,20 +964,21 @@ async function initializePushNotifications() {
 
         // Request notification permission if not already granted
         if (Notification.permission === 'default') {
-            await Notification.requestPermission();
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                console.log('Notification permission denied');
+                return;
+            }
         }
 
-        // Register service worker
-        const registration = await navigator.serviceWorker.register('/service-worker.js', {
-            scope: '/'
-        });
-
-        console.log('✅ Service Worker registered successfully');
+        // Register Firebase messaging service worker
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        console.log('✅ Firebase Service Worker registered successfully');
         serviceWorkerReady = true;
 
-        // Subscribe to push notifications if permission is granted
+        // Subscribe to FCM if permission is granted
         if (Notification.permission === 'granted') {
-            await subscribeToPushNotifications(registration);
+            await subscribeToFCM();
         }
 
         // Listen for messages from service worker
@@ -989,98 +990,58 @@ async function initializePushNotifications() {
 }
 
 /**
- * Fetch VAPID public key from server
+ * Subscribe to Firebase Cloud Messaging
  */
-async function fetchVapidPublicKey() {
+async function subscribeToFCM() {
     try {
-        const response = await fetch('/api/push/public-key');
-        if (!response.ok) {
-            console.warn('No VAPID public key configured on server');
-            return null;
-        }
-        const data = await response.json();
-        return data.publicKey || null;
-    } catch (error) {
-        console.warn('Failed to fetch VAPID public key:', error);
-        return null;
-    }
-}
-
-/**
- * Subscribe device to push notifications
- */
-async function subscribeToPushNotifications(registration) {
-    try {
-        const publicKey = await fetchVapidPublicKey();
-        if (!publicKey) {
-            console.warn('Skipping push subscription: missing VAPID public key');
+        if (!window.firebaseMessaging) {
+            console.warn('Firebase messaging not initialized yet');
+            // Retry after a short delay
+            setTimeout(subscribeToFCM, 1000);
             return;
         }
 
-        // Get existing subscription or create new one
-        let subscription = await registration.pushManager.getSubscription();
+        // Dynamically import getToken from Firebase
+        const { getToken } = await import('https://www.gstatic.com/firebasejs/12.7.0/firebase-messaging.js');
+        
+        // Get FCM token
+        const token = await getToken(window.firebaseMessaging, {
+            vapidKey: 'BOgbNH3fw8fpwsHkAUPTIs5iZC9vB1nOIf5R-WIWqtHXPUzhwyL67Q624eibAR6HGoyd8O-XxUnsUw9VdjXK5i4' // You'll need to generate this in Firebase Console
+        });
 
-        // If an old subscription exists with a different VAPID key, resubscribe
-        if (subscription && subscription.options?.applicationServerKey) {
-            const existingKey = btoa(String.fromCharCode(...new Uint8Array(subscription.options.applicationServerKey)))
-                .replace(/\+/g, '-')
-                .replace(/\//g, '_')
-                .replace(/=+$/, '');
-            if (existingKey !== publicKey) {
-                await subscription.unsubscribe();
-                subscription = null;
-            }
+        if (token) {
+            console.log('✅ FCM Token obtained:', token.substring(0, 20) + '...');
+            
+            // Save token to server
+            await saveFCMTokenToServer(token);
+            pushSubscription = { token }; // Store token reference
+        } else {
+            console.log('No FCM token available');
         }
-
-        if (!subscription) {
-            subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(publicKey)
-            });
-        }
-
-        // Save subscription to server
-        await saveSubscriptionToServer(subscription);
-        pushSubscription = subscription;
-        console.log('✅ Push subscription successful');
     } catch (error) {
-        console.error('Failed to subscribe to push notifications:', error);
+        console.error('Failed to get FCM token:', error);
     }
 }
 
 /**
- * Convert VAPID key from base64 to Uint8Array
+ * Save FCM token to server
  */
-function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-        .replace(/\-/g, '+')
-        .replace(/_/g, '/');
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
-}
-
-/**
- * Save push subscription to server
- */
-async function saveSubscriptionToServer(subscription) {
+async function saveFCMTokenToServer(token) {
     try {
-        const response = await fetch('/api/push/subscribe', {
+        const response = await fetch('/api/fcm/subscribe', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${currentToken}`
             },
             body: JSON.stringify({
-                subscription: subscription.toJSON(),
+                fcmToken: token,
                 userId: currentUser.id,
-                username: currentUser.username
+                username: currentUser.username,
+                deviceInfo: {
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform
+                }
             })
         });
 
@@ -1088,9 +1049,9 @@ async function saveSubscriptionToServer(subscription) {
             throw new Error(`Server returned ${response.status}`);
         }
 
-        console.log('✅ Subscription saved to server');
+        console.log('✅ FCM token saved to server');
     } catch (error) {
-        console.error('Failed to save subscription to server:', error);
+        console.error('Failed to save FCM token to server:', error);
     }
 }
 
@@ -1107,6 +1068,44 @@ function handleServiceWorkerMessage(event) {
         loadOrders();
     }
 }
+
+/**
+ * Handle foreground Firebase Cloud Messaging notifications
+ * This is called when a notification arrives while the app is open
+ */
+window.handleFCMMessage = function(payload) {
+    console.log('FCM foreground message:', payload);
+    
+    try {
+        const notificationData = payload.data || {};
+        const notification = payload.notification || {};
+        
+        // Extract notification details
+        const notif = {
+            id: notificationData.orderId || Date.now(),
+            order_name: notificationData.orderName || notification.body || 'New Order',
+            department: notificationData.department || 'Engineering',
+            level: parseInt(notificationData.level) || 0,
+            creatorName: notificationData.creatorName || 'Unknown'
+        };
+        
+        // Show appropriate notification based on level
+        if (notif.level === 0) {
+            // New order
+            showNewOrderNotification(notif);
+        } else {
+            // Pending/warning notification
+            showPendingOrderNotification(notif);
+        }
+        
+        // Refresh orders to show the new one
+        if (currentDepartment === notif.department) {
+            loadOrders();
+        }
+    } catch (error) {
+        console.error('Error handling FCM message:', error);
+    }
+};
 
 /**
  * Send web push notification to device

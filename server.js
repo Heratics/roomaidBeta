@@ -43,6 +43,9 @@ const db = require('./database');
 const auth = require('./auth');
 const validation = require('./lib/validation');
 
+// FCM (Firebase Cloud Messaging) routes
+const fcmRoutes = require('./routes/fcm');
+
 // Initialize Express app and middleware
 const app = express();
 const PORT = config.server.port || process.env.PORT || 3000;
@@ -58,6 +61,9 @@ app.use(session({
 
 // Serve static assets
 app.use(express.static('public'));
+
+// Initialize FCM routes
+fcmRoutes.createFCMRoutes(app);
 
 const authenticateToken = (req, res, next) => {
   // Extract token from Authorization header or session
@@ -277,8 +283,42 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
       WHERE o.id = ?
     `, [orderId]);
 
+    const createdOrder = orders[0];
+
+    // Send FCM notification to all users in the same hotel
+    try {
+      // Get all users from the same hotel (excluding the creator)
+      const hotelUsers = await db.query(
+        'SELECT id FROM users WHERE hotel_code = ? AND id != ?',
+        [hotelCode, user.id]
+      );
+
+      if (hotelUsers && hotelUsers.length > 0) {
+        const userIds = hotelUsers.map(u => u.id);
+        
+        // Send FCM notification
+        await fcmRoutes.sendFCMNotification(userIds, {
+          title: '🆕 New Order Received!',
+          body: `${departmentValidation.value}: Room ${roomNumberValidation.value}`,
+          data: {
+            orderId: orderId.toString(),
+            orderName: createdOrder.order_name,
+            department: departmentValidation.value,
+            level: '0', // New order
+            creatorName: createdOrder.creatorName || 'Unknown',
+            type: 'new_order'
+          }
+        });
+        
+        console.log(`✅ FCM notification sent for new order ${orderId}`);
+      }
+    } catch (fcmError) {
+      console.warn('FCM notification failed (non-critical):', fcmError.message);
+      // Don't fail the request if notification fails
+    }
+
     // Return the created order
-    res.json({ order: orders[0] });
+    res.json({ order: createdOrder });
   } catch (error) {
     console.error('Create order error:', error);
     res.status(500).json({ error: 'Internal server error' });

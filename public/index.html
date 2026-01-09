@@ -546,6 +546,46 @@
         </div>
     </div>
 
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-analytics.js";
+        import { getMessaging, getToken, onMessage } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-messaging.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAepw58g6neZKaAtjyR7ZhnBx1qXxxJQUw",
+            authDomain: "roomaidnotf.firebaseapp.com",
+            projectId: "roomaidnotf",
+            storageBucket: "roomaidnotf.firebasestorage.app",
+            messagingSenderId: "167389486268",
+            appId: "1:167389486268:web:d706a23cf70865d05944b9",
+            measurementId: "G-891G4LKGL2"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const messaging = getMessaging(app);
+
+        // Make messaging available globally
+        window.firebaseMessaging = messaging;
+        window.firebaseApp = app;
+
+        // Handle foreground messages
+        onMessage(messaging, (payload) => {
+            console.log('Foreground message received:', payload);
+            
+            // Call the notification handler if it exists
+            if (window.handleFCMMessage) {
+                window.handleFCMMessage(payload);
+            }
+        });
+
+        console.log('Firebase initialized successfully');
+    </script>
+
     <!-- Link to notification sounds script -->
     <script src="notification-sounds.js"></script>
     <!-- Link to main JavaScript application file -->
