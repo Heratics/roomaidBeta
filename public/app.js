@@ -89,6 +89,9 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeDarkMode();
     autoDetectTheme();
     
+    // Initialize notification sounds
+    initializeNotificationSounds();
+    
     // Initialize language support
     initializeLanguage();
 
@@ -752,6 +755,11 @@ async function checkNewOrderNotifications() {
 function showNewOrderNotification(notification) {
     if (!toastContainer) initToastContainer();
 
+    // Play new order sound
+    if (window.notificationSounds) {
+        window.notificationSounds.playNewOrderSound();
+    }
+
     const roomMatch = (notification.order_name || '').match(/Room\s+(.*)/i);
     const roomText = roomMatch ? roomMatch[1] : (notification.order_name || '');
 
@@ -842,6 +850,11 @@ async function checkPendingNotifications() {
 // Show notification for unclaimed order
 function showPendingOrderNotification(notification) {
     if (!toastContainer) initToastContainer();
+    
+    // Play warning sound based on urgency level
+    if (window.notificationSounds) {
+        window.notificationSounds.playWarningSound(notification.level);
+    }
     
     const roomMatch = (notification.order_name || '').match(/Room\s+(.*)/i);
     const roomText = roomMatch ? roomMatch[1] : (notification.order_name || '');
@@ -1794,6 +1807,49 @@ function autoDetectTheme() {
         const systemPrefersDark = prefersDarkMode();
         setTheme(systemPrefersDark ? 'dark' : 'light');
     }
+}
+
+// ============================================================================
+// NOTIFICATION SOUNDS FUNCTIONALITY
+// ============================================================================
+
+/**
+ * Toggle notification sounds on/off
+ */
+function toggleNotificationSounds() {
+    if (window.notificationSounds) {
+        const currentState = window.notificationSounds.isEnabled();
+        window.notificationSounds.setEnabled(!currentState);
+        updateNotificationSoundsUI();
+        
+        // Close settings menu after toggling
+        const settingsDropdown = document.getElementById('settingsDropdown');
+        if (settingsDropdown) {
+            settingsDropdown.classList.remove('active');
+            settingsMenuOpen = false;
+        }
+    }
+}
+
+/**
+ * Update notification sounds UI based on current state
+ */
+function updateNotificationSoundsUI() {
+    const soundIcon = document.getElementById('soundIcon');
+    const soundText = document.getElementById('soundText');
+    
+    if (window.notificationSounds && soundIcon && soundText) {
+        const isEnabled = window.notificationSounds.isEnabled();
+        soundIcon.textContent = isEnabled ? '🔔' : '🔕';
+        soundText.textContent = isEnabled ? 'Notification Sounds' : 'Notification Sounds (Off)';
+    }
+}
+
+/**
+ * Initialize notification sounds UI on page load
+ */
+function initializeNotificationSounds() {
+    updateNotificationSoundsUI();
 }
 
 // ============================================================================

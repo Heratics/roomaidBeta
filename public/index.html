@@ -250,6 +250,10 @@
                                 <span class="settings-item-icon" id="themeIcon">🌙</span>
                                 <span id="themeText">Dark Mode</span>
                             </button>
+                            <button class="settings-item" onclick="toggleNotificationSounds()">
+                                <span class="settings-item-icon" id="soundIcon">🔔</span>
+                                <span id="soundText">Notification Sounds</span>
+                            </button>
                             <button class="settings-item danger" onclick="handleLogout()">
                                 <span class="settings-item-icon">🚪</span>
                                 <span>Logout</span>
@@ -542,6 +546,8 @@
         </div>
     </div>
 
+    <!-- Link to notification sounds script -->
+    <script src="notification-sounds.js"></script>
     <!-- Link to main JavaScript application file -->
     <script src="app.js"></script>
 </body>
