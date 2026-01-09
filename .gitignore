@@ -4,3 +4,5 @@ npm-debug.log*
 .DS_Store
 .env
 ca.pem
+.env
+roomaidnotf-firebase-adminsdk-*.json

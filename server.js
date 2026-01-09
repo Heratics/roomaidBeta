@@ -19,23 +19,6 @@ const cors = require('cors');
 // Session management middleware for user sessions
 const session = require('express-session');
 
-// Web push for browser notifications
-const webpush = require('web-push');
-
-// VAPID configuration for web push
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
-const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:no-reply@example.com';
-const VAPID_CONFIGURED = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
-let vapidWarningLogged = false;
-
-if (VAPID_CONFIGURED) {
-  webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-  console.log('✅ Web Push configured with VAPID keys');
-} else {
-  console.warn('⚠️  VAPID keys not configured. Push notifications will be disabled.');
-}
-
 // Core application modules
 const path = require('path');
 const config = require('./config');
@@ -2071,13 +2054,6 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
       notifications.push(...userNotifications);
     }
 
-    // Send push notifications (if configured)
-    if (pushMessages.length) {
-      await Promise.all(
-        pushMessages.map(msg => sendPushNotifications(msg.hotelCode, msg.title, msg.message, msg.data))
-      );
-    }
-
     // Mark notifications as sent in database
     for (const notif of notifications) {
       try {
@@ -2172,13 +2148,6 @@ app.get('/api/notifications/new-orders', authenticateToken, async (req, res) => 
       });
     }
 
-    // Send push notifications (if configured)
-    if (pushMessages.length) {
-      await Promise.all(
-        pushMessages.map(msg => sendPushNotifications(msg.hotelCode, msg.title, msg.message, msg.data))
-      );
-    }
-
     // Mark notifications as sent in database
     for (const notif of notifications) {
       try {
@@ -2208,147 +2177,8 @@ app.get('/api/notifications/new-orders', authenticateToken, async (req, res) => 
 // PUSH NOTIFICATIONS
 // ============================================================================
 
-/**
- * GET /api/push/public-key
- * Returns the VAPID public key for clients to subscribe
- */
-app.get('/api/push/public-key', (req, res) => {
-  if (!VAPID_PUBLIC_KEY) {
-    return res.status(503).json({ error: 'Push notifications are not configured' });
-  }
-  res.json({ publicKey: VAPID_PUBLIC_KEY });
-});
-
-/**
- * POST /api/push/subscribe
- * Save push notification subscription for a user
- * Allows sending web push notifications to their devices
- */
-app.post('/api/push/subscribe', authenticateToken, async (req, res) => {
-  try {
-    const user = req.user;
-    const { subscription } = req.body;
-
-    if (!subscription || !subscription.endpoint) {
-      return res.status(400).json({ error: 'Invalid subscription' });
-    }
-
-    const endpoint = subscription.endpoint;
-    const authKey = subscription.keys?.auth || null;
-    const p256dhKey = subscription.keys?.p256dh || null;
-
-    // Save or update subscription in database
-    try {
-      await db.query(`
-        INSERT INTO push_subscriptions 
-        (user_id, username, endpoint, auth_key, p256dh_key, hotel_code, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
-        ON DUPLICATE KEY UPDATE 
-          user_id = VALUES(user_id),
-          username = VALUES(username),
-          updated_at = NOW()
-      `, [
-        user.id,
-        user.username,
-        endpoint,
-        authKey,
-        p256dhKey,
-        user.hotel_code || user.hotelCode
-      ]);
-
-      console.log(`✅ Push subscription saved for user ${user.username}`);
-      res.json({ success: true, message: 'Subscription saved' });
-    } catch (error) {
-      console.error('Error saving subscription:', error);
-      res.status(500).json({ error: 'Failed to save subscription' });
-    }
-  } catch (error) {
-    console.error('Subscribe error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-/**
- * POST /api/push/send
- * Send push notification to subscribed users in a hotel
- * Used internally for sending pending order notifications
- */
-async function sendPushNotifications(hotelCode, title, message, notificationData) {
-  try {
-    if (!VAPID_CONFIGURED) {
-      if (!vapidWarningLogged) {
-        console.warn('Push notification attempt skipped: VAPID keys are not configured.');
-        vapidWarningLogged = true;
-      }
-      return;
-    }
-
-    const allowedRoles = notificationData.level === 2
-      ? ['supervisor', 'manager', 'admin']
-      : ['employee', 'supervisor', 'manager', 'admin'];
-
-    const rolePlaceholders = allowedRoles.map(() => '?').join(',');
-
-    // Get subscriptions for users in the hotel filtered by role
-    const subscriptions = await db.query(`
-      SELECT ps.*, u.role 
-      FROM push_subscriptions ps
-      JOIN users u ON ps.user_id = u.id
-      WHERE ps.hotel_code = ?
-        AND u.role IN (${rolePlaceholders})
-    `, [hotelCode, ...allowedRoles]);
-
-    if (subscriptions.length === 0) {
-      console.log(`No push subscriptions found for hotel ${hotelCode}`);
-      return;
-    }
-
-    const payload = JSON.stringify({
-      title: title,
-      body: message,
-      ...notificationData
-    });
-
-    const results = await Promise.allSettled(
-      subscriptions.map(sub => {
-        const subscription = {
-          endpoint: sub.endpoint,
-          keys: {
-            auth: sub.auth_key,
-            p256dh: sub.p256dh_key
-          }
-        };
-
-        return webpush.sendNotification(subscription, payload);
-      })
-    );
-
-    // Clean up stale subscriptions and log failures
-    const staleEndpoints = [];
-    results.forEach((result, index) => {
-      if (result.status === 'rejected') {
-        const err = result.reason;
-        const status = err?.statusCode;
-        const endpoint = subscriptions[index]?.endpoint;
-
-        if (status === 404 || status === 410) {
-          staleEndpoints.push(endpoint);
-          console.warn(`Removed stale push subscription for endpoint ${endpoint}`);
-        } else {
-          console.error('Failed to send push notification:', err);
-        }
-      }
-    });
-
-    if (staleEndpoints.length) {
-      await Promise.all(
-        staleEndpoints.map(endpoint => db.query('DELETE FROM push_subscriptions WHERE endpoint = ?', [endpoint]))
-      );
-    }
-  } catch (error) {
-    console.error('Error sending push notifications:', error);
-  }
-}
+// Old web-push endpoints removed - now using Firebase Cloud Messaging (FCM)
+// Push notifications are now sent via routes/fcm.js
 
 // ============================================================================
 // STATIC FILE SERVING

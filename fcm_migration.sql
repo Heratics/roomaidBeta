@@ -14,9 +14,9 @@ CREATE TABLE IF NOT EXISTS `fcm_tokens` (
   INDEX `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Clean up old web-push subscriptions (optional)
--- Uncomment if you want to remove the old notification table
--- DROP TABLE IF EXISTS `notf`;
+-- Clean up old web-push tables
+DROP TABLE IF EXISTS `notf`;
+DROP TABLE IF EXISTS `push_subscriptions`;
 
 -- Note: Run this SQL script in your database to create the FCM tokens table
 -- You can execute it using MySQL command line or a database management tool
