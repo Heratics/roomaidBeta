@@ -55,11 +55,30 @@ try {
  * Create routes for FCM
  */
 function createFCMRoutes(app) {
+    // Middleware: authenticate via JWT (fallback if auth.authenticateToken is missing)
+    const authenticateToken = auth.authenticateToken || ((req, res, next) => {
+        try {
+            const headerToken = req.headers.authorization?.split(' ')[1];
+            const sessionToken = req.session?.token;
+            const token = headerToken || sessionToken;
+            if (!token) {
+                return res.status(401).json({ error: 'Access token required' });
+            }
+            const user = auth.verifyToken(token);
+            if (!user) {
+                return res.status(401).json({ error: 'Invalid token' });
+            }
+            req.user = user;
+            next();
+        } catch (e) {
+            return res.status(401).json({ error: 'Authentication failed' });
+        }
+    });
     /**
      * POST /api/fcm/subscribe
      * Save FCM token for a user
      */
-    app.post('/api/fcm/subscribe', auth.authenticateToken, async (req, res) => {
+    app.post('/api/fcm/subscribe', authenticateToken, async (req, res) => {
         try {
             const { fcmToken, userId, username, deviceInfo } = req.body;
 
@@ -102,7 +121,7 @@ function createFCMRoutes(app) {
      * POST /api/fcm/send
      * Send notification via FCM
      */
-    app.post('/api/fcm/send', auth.authenticateToken, async (req, res) => {
+    app.post('/api/fcm/send', authenticateToken, async (req, res) => {
         try {
             const { userIds, title, body, data } = req.body;
 
@@ -218,7 +237,7 @@ function createFCMRoutes(app) {
      * DELETE /api/fcm/unsubscribe
      * Remove FCM token
      */
-    app.delete('/api/fcm/unsubscribe', auth.authenticateToken, async (req, res) => {
+    app.delete('/api/fcm/unsubscribe', authenticateToken, async (req, res) => {
         try {
             const { fcmToken } = req.body;
 
