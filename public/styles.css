@@ -1268,6 +1268,97 @@ body {
     border-color: var(--brand-primary);
 }
 
+/* ============================================================================
+   NOTIFICATION PERMISSION MODAL STYLES
+   ============================================================================ */
+
+.notification-permission-modal {
+    max-width: 500px;
+    text-align: center;
+}
+
+.notification-permission-content {
+    padding: 1rem 0;
+}
+
+.notification-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    animation: bellRing 2s ease-in-out infinite;
+}
+
+@keyframes bellRing {
+    0%, 100% { transform: rotate(0deg); }
+    10%, 30% { transform: rotate(-10deg); }
+    20%, 40% { transform: rotate(10deg); }
+}
+
+.notification-permission-content h3 {
+    color: var(--brand-primary);
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+}
+
+.notification-permission-content p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.notification-benefits {
+    list-style: none;
+    padding: 0;
+    margin: 1.5rem 0;
+    text-align: left;
+}
+
+.notification-benefits li {
+    padding: 0.75rem 1rem;
+    margin: 0.5rem 0;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    border-left: 4px solid var(--brand-primary);
+}
+
+.ios-notice {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+    text-align: left;
+}
+
+.ios-notice p {
+    margin: 0.5rem 0;
+    color: #856404;
+}
+
+.ios-notice strong {
+    color: #856404;
+}
+
+.ios-notice ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+    color: #856404;
+}
+
+.ios-notice li {
+    margin: 0.25rem 0;
+}
+
+[data-theme="dark"] .ios-notice {
+    background: #3d3d1f;
+    border-color: #d39e00;
+}
+
+[data-theme="dark"] .ios-notice p,
+[data-theme="dark"] .ios-notice strong,
+[data-theme="dark"] .ios-notice ol {
+    color: #ffc107;
+}
+
 /* Logs filter section */
 .logs-filter {
     display: flex;

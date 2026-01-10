@@ -711,17 +711,18 @@ function startNotificationsPolling() {
         }
     }, 10000);
 
-    // Poll every 30 seconds for pending/overdue notifications
-    notificationsInterval = setInterval(() => {
-        if (currentToken && dashboardScreen && dashboardScreen.style.display !== 'none') {
-            checkPendingNotifications();
-        }
-    }, 30000);
+    // DISABLED: Pending order polling is now handled by FCM reminders (scheduleReminders in orderNotifications.js)
+    // This prevents duplicate notifications
+    // notificationsInterval = setInterval(() => {
+    //     if (currentToken && dashboardScreen && dashboardScreen.style.display !== 'none') {
+    //         checkPendingNotifications();
+    //     }
+    // }, 30000);
 
     // Also check immediately
     checkNewOrderNotifications();
-    checkPendingNotifications();
-    console.log('Notifications polling started');
+    // checkPendingNotifications(); // Disabled - FCM handles this now
+    console.log('Notifications polling started (FCM handles reminders)');
 }
 
 // Check for newly created orders
@@ -960,14 +961,92 @@ async function initializePushNotifications() {
             return;
         }
 
+        // Check if user has been prompted before
+        const hasBeenPrompted = localStorage.getItem('notificationPrompted');
+        const notificationChoice = localStorage.getItem('notificationChoice');
+        
+        // If user already made a choice, respect it
+        if (hasBeenPrompted && notificationChoice === 'denied') {
+            console.log('User previously declined notifications');
+            return;
+        }
+        
+        // If notifications are already granted, proceed with setup
+        if (Notification.permission === 'granted') {
+            await setupPushNotifications();
+            return;
+        }
+        
+        // If user hasn't been prompted yet, show our custom modal
+        if (!hasBeenPrompted && Notification.permission === 'default') {
+            showNotificationPermissionModal();
+            return;
+        }
+        
+        // If permission was previously denied by browser, don't show modal
+        if (Notification.permission === 'denied') {
+            console.log('Notification permission previously denied by browser');
+            localStorage.setItem('notificationPrompted', 'true');
+            localStorage.setItem('notificationChoice', 'denied');
+            return;
+        }
+    } catch (error) {
+        console.warn('Push notifications initialization failed:', error);
+    }
+}
+
+/**
+ * Show notification permission modal
+ */
+function showNotificationPermissionModal() {
+    const modal = document.getElementById('notificationPermissionModal');
+    const iosInstructions = document.getElementById('iosInstructions');
+    const enableBtn = document.getElementById('enableNotificationsBtn');
+    const skipBtn = document.getElementById('skipNotificationsBtn');
+    
+    if (!modal) return;
+    
+    // Check if iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    
+    // Show iOS instructions if on iOS and not in standalone mode
+    if (isIOS && !isInStandaloneMode && iosInstructions) {
+        iosInstructions.style.display = 'block';
+    }
+    
+    // Show modal
+    modal.style.display = 'flex';
+    
+    // Handle enable button
+    enableBtn.onclick = async () => {
+        modal.style.display = 'none';
+        localStorage.setItem('notificationPrompted', 'true');
+        localStorage.setItem('notificationChoice', 'granted');
+        await setupPushNotifications();
+    };
+    
+    // Handle skip button
+    skipBtn.onclick = () => {
+        modal.style.display = 'none';
+        localStorage.setItem('notificationPrompted', 'true');
+        localStorage.setItem('notificationChoice', 'denied');
+        console.log('User skipped notifications');
+    };
+}
+
+/**
+ * Setup push notifications (called after permission is granted)
+ */
+async function setupPushNotifications() {
+    try {
         // Check for iOS and show instructions
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
         
         if (isIOS && !isInStandaloneMode) {
             console.log('⚠️ iOS detected: Push notifications require adding app to Home Screen');
-            console.log('Instructions: Tap Share button → Add to Home Screen');
-            // You could show a banner here instructing users to add to home screen
+            return;
         }
 
         // Unregister old service workers to avoid duplicate notifications
