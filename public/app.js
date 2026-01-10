@@ -956,6 +956,15 @@ async function initializePushNotifications() {
             return;
         }
 
+        // Unregister old service workers to avoid duplicate notifications
+        const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of existingRegistrations) {
+            if (registration.active && registration.active.scriptURL.includes('serviceWorker.js')) {
+                console.log('🗑️ Unregistering old service worker:', registration.active.scriptURL);
+                await registration.unregister();
+            }
+        }
+
         // Ask for permission up front to avoid double prompts later
         if (Notification.permission === 'default') {
             const permission = await Notification.requestPermission();
@@ -1098,7 +1107,39 @@ window.handleFCMMessage = function(payload) {
         const notificationData = payload.data || {};
         const notification = payload.notification || {};
         
-        // Extract notification details
+        // For reminder notifications (no level data), show browser notification
+        if (notificationData.type === 'order-reminder' || notificationData.type === 'order-escalation') {
+            // Show browser notification even when app is in foreground
+            if (Notification.permission === 'granted') {
+                const browserNotif = new Notification(notification.title || 'RoomAid Reminder', {
+                    body: notification.body,
+                    icon: '/RoomAidTaskBoard.png',
+                    badge: '/RoomAidTaskBoard.png',
+                    tag: notificationData.orderId || 'reminder',
+                    requireInteraction: notificationData.urgent === 'true',
+                    data: notificationData
+                });
+                
+                browserNotif.onclick = function() {
+                    window.focus();
+                    this.close();
+                };
+            }
+            
+            // Also show in-app toast
+            const notif = {
+                id: notificationData.orderId || Date.now(),
+                order_name: notification.body || 'Reminder',
+                department: 'Engineering',
+                level: notificationData.urgent === 'true' ? 3 : 1,
+                creatorName: 'System'
+            };
+            showPendingOrderNotification(notif);
+            loadOrders();
+            return;
+        }
+        
+        // Extract notification details for regular orders
         const notif = {
             id: notificationData.orderId || Date.now(),
             order_name: notificationData.orderName || notification.body || 'New Order',
