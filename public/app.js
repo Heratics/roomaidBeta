@@ -736,7 +736,6 @@ async function checkNewOrderNotifications() {
                     if (!seenNotificationIds.has(`${notif.id}-new`)) {
                         seenNotificationIds.add(`${notif.id}-new`);
                         showNewOrderNotification(notif);
-                        sendPushNotificationToDevice(notif);
                     }
                 });
             }
@@ -832,7 +831,6 @@ async function checkPendingNotifications() {
                     if (!seenNotificationIds.has(`${notif.id}-${notif.level}`)) {
                         seenNotificationIds.add(`${notif.id}-${notif.level}`);
                         showPendingOrderNotification(notif);
-                        sendPushNotificationToDevice(notif);
                     }
                 });
             }
