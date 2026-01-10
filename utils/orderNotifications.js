@@ -62,7 +62,7 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
         { minutes: 3, message: '⏰ Reminder: Order not accepted yet' },
         { minutes: 5, message: '⚠️ Urgent: Please accept the order' },
         { minutes: 8, message: '🔴 Critical: Order still pending' },
-        { minutes: 10, message: '🚨 Very Urgent: Order needs attention!' }
+        { minutes: 12, message: '🚨 Very Urgent: Order needs attention!' }
     ];
     
     const timeouts = [];
@@ -72,7 +72,7 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
             // Check if order is still unaccepted
             const order = await getOrderStatus(orderId);
             
-            if (order && !order.assigned_to) {
+            if (order && !order.assigned_to && !order.completed_at) {
                 console.log(`Sending ${minutes}-minute reminder for order ${orderId}`);
                 
                 try {
@@ -111,7 +111,7 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
     const supervisorTimeout = setTimeout(async () => {
         const order = await getOrderStatus(orderId);
         
-        if (order && !order.assigned_to) {
+        if (order && !order.assigned_to && !order.completed_at) {
             console.log(`Order ${orderId} still pending after 15 minutes, notifying supervisors`);
             
             try {

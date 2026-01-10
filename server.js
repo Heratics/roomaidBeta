@@ -25,6 +25,7 @@ const config = require('./config');
 const db = require('./database');
 const auth = require('./auth');
 const validation = require('./lib/validation');
+const orderNotifications = require('./utils/orderNotifications');
 
 // FCM (Firebase Cloud Messaging) routes
 const fcmRoutes = require('./routes/fcm');
@@ -300,6 +301,17 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
       // Don't fail the request if notification fails
     }
 
+    // Schedule reminder notifications for the new order
+    try {
+      await orderNotifications.scheduleReminders(orderId, departmentValidation.value.toLowerCase(), hotelCode, {
+        roomNumber: roomNumberValidation.value,
+        notes: notesValidation.value || ''
+      });
+      console.log(`✅ Reminders scheduled for order ${orderId}`);
+    } catch (remErr) {
+      console.warn('Reminder scheduling failed (non-critical):', remErr.message);
+    }
+
     // Return the created order
     res.json({ order: createdOrder });
   } catch (error) {
@@ -365,6 +377,13 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
     // Check if order was found
     if (orders.length === 0) {
       return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // Clear reminders upon acceptance
+    try {
+      await orderNotifications.handleOrderAcceptance(id);
+    } catch (remErr) {
+      console.warn('Clearing reminders on acceptance failed (non-critical):', remErr.message);
     }
 
     // Return the updated order
