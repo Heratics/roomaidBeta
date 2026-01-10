@@ -1016,7 +1016,9 @@ async function initializePushNotifications() {
         const messaging = window.firebase.messaging();
         window.firebaseMessaging = messaging;
 
-        const vapidKey = window.FCM_PUBLIC_VAPID_KEY || undefined;
+        // IMPORTANT: Replace this with your actual Firebase Web Push certificate (VAPID key)
+        // Get it from: Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
+        const vapidKey = 'BOgbNH3fw8fpwsHkAUPTIs5iZC9vB1nOIf5R-WIWqtHXPUzhwyL67Q624eibAR6HGoyd8O-XxUnsUw9VdjXK5i4'; 
         const token = await messaging.getToken({ vapidKey, serviceWorkerRegistration: swRegistration });
 
         if (token) {

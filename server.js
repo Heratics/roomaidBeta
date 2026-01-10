@@ -676,6 +676,14 @@ app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
       ? `Order put on hold by ${userFullName}: ${holdInfo}. Reason: ${reason}`
       : `Order put on hold by ${userFullName}: ${holdInfo}`;
     
+    // Clear any pending reminders for this order
+    try {
+      await orderNotifications.clearReminders(orderId);
+      console.log(`✅ Reminders cleared for order ${orderId} due to hold`);
+    } catch (remErr) {
+      console.warn('Warning: Could not clear reminders for held order:', remErr.message);
+    }
+    
     // Fetch the order to get its name for logging
     let orderForLog;
     if (tableName === 'engineering_orders') {
