@@ -126,12 +126,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const isPrivileged = currentUser && (currentUser.role === 'manager' || currentUser.role === 'admin' || currentUser.role === 'supervisor');
             if (logsMenuItem && isPrivileged) {
                 logsMenuItem.style.display = 'flex';
-            // Initialize push notifications (FCM)
-            initializePushNotifications();
             }
-            // Initialize push notifications (FCM web)
+
             initializePushNotifications();
-            
             showDashboard();
         } catch (error) {
             console.error('Error parsing saved user data:', error);
@@ -150,215 +147,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     setupEventListeners();
 });
-
-// ============================================================
-// FCM PUSH NOTIFICATIONS (WEB)
-// ============================================================
-
-async function initializePushNotifications() {
-    try {
-        if (!('serviceWorker' in navigator)) {
-            console.warn('Service workers not supported');
-            return;
-        }
-        if (!('Notification' in window)) {
-            console.warn('Notifications not supported');
-            return;
-        }
-
-        // Register FCM service worker
-        const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        console.log('🧩 FCM service worker registered:', swReg.scope);
-
-        // Request permission
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-            console.warn('Notification permission denied');
-            return;
-        }
-
-        // Load Firebase compat SDK (matches service worker)
-        await loadFirebaseCompatSDK();
-
-        const firebaseConfig = {
-            apiKey: 'AIzaSyAepw58g6neZKaAtjyR7ZhnBx1qXxxJQUw',
-            authDomain: 'roomaidnotf.firebaseapp.com',
-            projectId: 'roomaidnotf',
-            storageBucket: 'roomaidnotf.firebasestorage.app',
-            messagingSenderId: '167389486268',
-            appId: '1:167389486268:web:d706a23cf70865d05944b9',
-            measurementId: 'G-891G4LKGL2'
-        };
-
-        if (!window.firebase?.apps?.length) {
-            window.firebase.initializeApp(firebaseConfig);
-        }
-        const messaging = window.firebase.messaging();
-
-        // If you have a Web Push certificate (VAPID) configured, set it here
-        const vapidKey = window.FCM_PUBLIC_VAPID_KEY || undefined;
-
-        // Get token
-        const token = await messaging.getToken({ vapidKey, serviceWorkerRegistration: swReg });
-        if (!token) {
-            console.warn('No FCM token retrieved');
-            return;
-        }
-        console.log('📲 FCM token acquired');
-
-        // Subscribe token to backend
-        const resp = await fetch('/api/fcm/subscribe', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${currentToken}`
-            },
-            body: JSON.stringify({
-                fcmToken: token,
-                userId: currentUser?.id,
-                username: currentUser?.username,
-                deviceInfo: {
-                    platform: 'web',
-                    userAgent: navigator.userAgent,
-                    language: navigator.language
-                }
-            })
-        });
-        console.log('🔗 Token subscribe status:', resp.status);
-
-        // Foreground display
-        messaging.onMessage((payload) => {
-            const title = payload.notification?.title || 'RoomAid';
-            const body = payload.notification?.body || '';
-            try {
-                new Notification(title, { body });
-            } catch (e) {
-                console.warn('Foreground notification error:', e.message);
-            }
-        });
-    } catch (err) {
-        console.error('FCM init error:', err);
-    }
-}
-
-function loadFirebaseCompatSDK() {
-    return new Promise((resolve, reject) => {
-        const addScript = (src) => new Promise((res, rej) => {
-            const s = document.createElement('script');
-            s.src = src;
-            s.onload = () => res();
-            s.onerror = () => rej(new Error('Failed to load ' + src));
-            document.head.appendChild(s);
-        });
-        addScript('https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js')
-            .then(() => addScript('https://www.gstatic.com/firebasejs/12.7.0/firebase-messaging-compat.js'))
-            .then(resolve)
-            .catch(reject);
-    });
-}
-// ============================================================================
-// PUSH NOTIFICATIONS (FCM WEB)
-// ============================================================================
-
-async function initializePushNotifications() {
-    try {
-        if (!('Notification' in window)) {
-            console.warn('Notifications are not supported in this browser');
-            return;
-        }
-
-        // Register service worker at root for FCM background handling
-        const swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        serviceWorkerReady = true;
-        console.log('🧩 Service worker registered for FCM:', swReg.scope);
-
-        // Request permission
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-            console.warn('Notification permission not granted');
-            return;
-        }
-
-        // Dynamically load Firebase compat SDK (to match service worker)
-        await loadFirebaseCompatSDK();
-
-        const firebaseConfig = {
-            apiKey: 'AIzaSyAepw58g6neZKaAtjyR7ZhnBx1qXxxJQUw',
-            authDomain: 'roomaidnotf.firebaseapp.com',
-            projectId: 'roomaidnotf',
-            storageBucket: 'roomaidnotf.firebasestorage.app',
-            messagingSenderId: '167389486268',
-            appId: '1:167389486268:web:d706a23cf70865d05944b9',
-            measurementId: 'G-891G4LKGL2'
-        };
-
-        // Initialize Firebase and Messaging
-        if (!window.firebase?.apps?.length) {
-            window.firebase.initializeApp(firebaseConfig);
-        }
-        const messaging = window.firebase.messaging();
-
-        // Optional: VAPID key if configured in Firebase Web Push certificates
-        const vapidKey = window.FCM_PUBLIC_VAPID_KEY || undefined;
-
-        // Get FCM token
-        const token = await messaging.getToken({ vapidKey, serviceWorkerRegistration: swReg });
-        if (!token) {
-            console.warn('Failed to obtain FCM token');
-            return;
-        }
-        console.log('📲 FCM token acquired');
-
-        // Send token to backend for the logged-in user
-        await fetch('/api/fcm/subscribe', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${currentToken}`
-            },
-            body: JSON.stringify({
-                fcmToken: token,
-                userId: currentUser?.id,
-                username: currentUser?.username,
-                deviceInfo: {
-                    platform: 'web',
-                    userAgent: navigator.userAgent,
-                    language: navigator.language
-                }
-            })
-        });
-
-        // Foreground message handler (shows a basic notification)
-        messaging.onMessage((payload) => {
-            const title = payload.notification?.title || 'RoomAid';
-            const body = payload.notification?.body || '';
-            try {
-                new Notification(title, { body });
-            } catch (e) {
-                console.warn('Foreground notification failed:', e.message);
-            }
-        });
-    } catch (err) {
-        console.error('FCM init error:', err);
-    }
-}
-
-function loadFirebaseCompatSDK() {
-    return new Promise((resolve, reject) => {
-        const addScript = (src) => new Promise((res, rej) => {
-            const s = document.createElement('script');
-            s.src = src;
-            s.onload = () => res();
-            s.onerror = () => rej(new Error('Failed to load ' + src));
-            document.head.appendChild(s);
-        });
-        addScript('https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js')
-            .then(() => addScript('https://www.gstatic.com/firebasejs/12.7.0/firebase-messaging-compat.js'))
-            .then(resolve)
-            .catch(reject);
-    });
-}
-
 
 // Event listeners
 function setupEventListeners() {
@@ -1158,7 +946,6 @@ function showPendingOrderNotification(notification) {
  */
 async function initializePushNotifications() {
     try {
-        // Check if browser supports service workers and push notifications
         if (!('serviceWorker' in navigator)) {
             console.log('Service Workers not supported');
             return;
@@ -1169,26 +956,65 @@ async function initializePushNotifications() {
             return;
         }
 
-        // Request notification permission if not already granted
+        // Ask for permission up front to avoid double prompts later
         if (Notification.permission === 'default') {
             const permission = await Notification.requestPermission();
             if (permission !== 'granted') {
                 console.log('Notification permission denied');
                 return;
             }
+        } else if (Notification.permission === 'denied') {
+            console.log('Notification permission previously denied');
+            return;
         }
 
         // Register Firebase messaging service worker
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
         console.log('✅ Firebase Service Worker registered successfully');
         serviceWorkerReady = true;
 
-        // Subscribe to FCM if permission is granted
-        if (Notification.permission === 'granted') {
-            await subscribeToFCM();
+        // Load compat SDK so we match the service worker version
+        await loadFirebaseCompatSDK();
+
+        const firebaseConfig = {
+            apiKey: 'AIzaSyAepw58g6neZKaAtjyR7ZhnBx1qXxxJQUw',
+            authDomain: 'roomaidnotf.firebaseapp.com',
+            projectId: 'roomaidnotf',
+            storageBucket: 'roomaidnotf.firebasestorage.app',
+            messagingSenderId: '167389486268',
+            appId: '1:167389486268:web:d706a23cf70865d05944b9',
+            measurementId: 'G-891G4LKGL2'
+        };
+
+        if (!window.firebase?.apps?.length) {
+            window.firebase.initializeApp(firebaseConfig);
         }
 
-        // Listen for messages from service worker
+        const messaging = window.firebase.messaging();
+        window.firebaseMessaging = messaging;
+
+        const vapidKey = window.FCM_PUBLIC_VAPID_KEY || undefined;
+        const token = await messaging.getToken({ vapidKey, serviceWorkerRegistration: swRegistration });
+
+        if (token) {
+            console.log('✅ FCM Token obtained:', token.substring(0, 20) + '...');
+            await saveFCMTokenToServer(token);
+            pushSubscription = { token };
+        } else {
+            console.log('No FCM token available');
+        }
+
+        // Route foreground messages into our styled toast handler (no bland native popup)
+        messaging.onMessage((payload) => {
+            try {
+                if (typeof window.handleFCMMessage === 'function') {
+                    window.handleFCMMessage(payload);
+                }
+            } catch (err) {
+                console.warn('Foreground FCM handling failed:', err);
+            }
+        });
+
         navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
     } catch (error) {
         console.warn('Push notifications initialization failed:', error);
@@ -1196,38 +1022,17 @@ async function initializePushNotifications() {
     }
 }
 
-/**
- * Subscribe to Firebase Cloud Messaging
- */
-async function subscribeToFCM() {
-    try {
-        if (!window.firebaseMessaging) {
-            console.warn('Firebase messaging not initialized yet');
-            // Retry after a short delay
-            setTimeout(subscribeToFCM, 1000);
-            return;
-        }
+async function loadFirebaseCompatSDK() {
+    const addScript = (src) => new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Failed to load ' + src));
+        document.head.appendChild(s);
+    });
 
-        // Dynamically import getToken from Firebase
-        const { getToken } = await import('https://www.gstatic.com/firebasejs/12.7.0/firebase-messaging.js');
-        
-        // Get FCM token
-        const token = await getToken(window.firebaseMessaging, {
-            vapidKey: 'BOgbNH3fw8fpwsHkAUPTIs5iZC9vB1nOIf5R-WIWqtHXPUzhwyL67Q624eibAR6HGoyd8O-XxUnsUw9VdjXK5i4' // You'll need to generate this in Firebase Console
-        });
-
-        if (token) {
-            console.log('✅ FCM Token obtained:', token.substring(0, 20) + '...');
-            
-            // Save token to server
-            await saveFCMTokenToServer(token);
-            pushSubscription = { token }; // Store token reference
-        } else {
-            console.log('No FCM token available');
-        }
-    } catch (error) {
-        console.error('Failed to get FCM token:', error);
-    }
+    await addScript('https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js');
+    await addScript('https://www.gstatic.com/firebasejs/12.7.0/firebase-messaging-compat.js');
 }
 
 /**
