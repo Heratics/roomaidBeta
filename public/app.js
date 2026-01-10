@@ -956,6 +956,16 @@ async function initializePushNotifications() {
             return;
         }
 
+        // Check for iOS and show instructions
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        
+        if (isIOS && !isInStandaloneMode) {
+            console.log('⚠️ iOS detected: Push notifications require adding app to Home Screen');
+            console.log('Instructions: Tap Share button → Add to Home Screen');
+            // You could show a banner here instructing users to add to home screen
+        }
+
         // Unregister old service workers to avoid duplicate notifications
         const existingRegistrations = await navigator.serviceWorker.getRegistrations();
         for (const registration of existingRegistrations) {
