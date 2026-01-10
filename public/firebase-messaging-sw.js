@@ -25,16 +25,11 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
     console.log('Background message received:', payload);
 
-    // Avoid double notifications: when FCM includes a notification payload,
-    // the browser will already show it. Only show manually for data-only messages.
-    if (payload.notification) {
-        return;
-    }
-
+    // All messages are data-only, so we manually show the notification
     const notificationTitle = payload.data?.title || 'RoomAid Notification';
     const notificationOptions = {
         body: payload.data?.body || 'New notification',
-        icon: payload.data?.icon || '/RoomAidTaskBoard.png',
+        icon: '/RoomAidTaskBoard.png',
         badge: '/RoomAidTaskBoard.png',
         tag: payload.data?.orderId || 'roomaid-notification',
         data: payload.data,

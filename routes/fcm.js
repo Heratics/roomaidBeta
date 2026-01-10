@@ -86,25 +86,14 @@ function createFCMRoutes(app) {
                 return res.status(400).json({ error: 'FCM token is required' });
             }
 
-            // Check if token already exists
-            const existing = await db.query(
-                'SELECT id FROM fcm_tokens WHERE fcm_token = ?',
-                [fcmToken]
-            );
+            // Delete any existing token for this device (prevents old user from getting notifications)
+            await db.query('DELETE FROM fcm_tokens WHERE fcm_token = ?', [fcmToken]);
 
-            if (existing && existing.length > 0) {
-                // Update existing token
-                await db.query(
-                    'UPDATE fcm_tokens SET user_id = ?, username = ?, device_info = ?, updated_at = NOW() WHERE fcm_token = ?',
-                    [userId, username, JSON.stringify(deviceInfo || {}), fcmToken]
-                );
-            } else {
-                // Insert new token
-                await db.query(
-                    'INSERT INTO fcm_tokens (user_id, username, fcm_token, device_info, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
-                    [userId, username, fcmToken, JSON.stringify(deviceInfo || {})]
-                );
-            }
+            // Insert new token for current user
+            await db.query(
+                'INSERT INTO fcm_tokens (user_id, username, fcm_token, device_info, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
+                [userId, username, fcmToken, JSON.stringify(deviceInfo || {})]
+            );
 
             res.json({ 
                 success: true, 
@@ -248,12 +237,14 @@ function createFCMRoutes(app) {
     app.delete('/api/fcm/unsubscribe', authenticateToken, async (req, res) => {
         try {
             const { fcmToken } = req.body;
+            const user = req.user;
 
             if (!fcmToken) {
                 return res.status(400).json({ error: 'FCM token is required' });
             }
 
-            await db.query('DELETE FROM fcm_tokens WHERE fcm_token = ?', [fcmToken]);
+            // Delete by token AND user_id to ensure we remove the right token
+            await db.query('DELETE FROM fcm_tokens WHERE fcm_token = ? OR user_id = ?', [fcmToken, user.id]);
 
             res.json({ success: true, message: 'FCM token removed' });
         } catch (error) {
@@ -282,7 +273,11 @@ async function sendFCMNotification(userIds, notification) {
 
         if (fcmInitialized && admin) {
             // FCM requires all data values to be strings
-            const messageData = {};
+            // Send data-only message (no notification field) to prevent browser auto-display
+            const messageData = {
+                title: notification.title || 'RoomAid',
+                body: notification.body || 'New notification'
+            };
             if (notification.data) {
                 Object.keys(notification.data).forEach(key => {
                     messageData[key] = String(notification.data[key]);
@@ -290,10 +285,6 @@ async function sendFCMNotification(userIds, notification) {
             }
             
             const message = {
-                notification: {
-                    title: notification.title || 'RoomAid',
-                    body: notification.body || 'New notification'
-                },
                 data: messageData,
                 tokens: fcmTokens
             };

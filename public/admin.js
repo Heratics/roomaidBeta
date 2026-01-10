@@ -1212,7 +1212,7 @@ async function logout() {
         
         // Remove FCM token from database before logging out
         const fcmToken = localStorage.getItem('fcmToken');
-        if (fcmToken) {
+        if (fcmToken && authToken) {
             try {
                 await fetch('/api/fcm/unsubscribe', {
                     method: 'DELETE',
@@ -1228,13 +1228,15 @@ async function logout() {
             }
         }
         
-        await fetch('/api/auth/logout', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            }
-        });
+        if (authToken) {
+            await fetch('/api/auth/logout', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+        }
     } catch (error) {
         console.error('Logout error:', error);
     } finally {
