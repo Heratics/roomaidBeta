@@ -339,11 +339,12 @@ function setupEventListeners() {
                     console.log('Time frame set to:', time);
                 }
             } else {
-                // This is a deletion reason button (no data-reason attribute on deletion)
-                if (deletionReasonInput && e.target.closest('.delete-confirm-modal')) {
-                    const text = e.target.textContent.trim();
-                    deletionReasonInput.value = text;
-                    console.log('Deletion reason set to:', text);
+                // This is a deletion reason button
+                const reason = e.target.getAttribute('data-reason');
+                if (reason && deletionReasonInput && e.target.closest('.delete-confirm-modal')) {
+                    deletionReasonInput.value = reason;
+                    deletionReasonInput.focus();
+                    console.log('Deletion reason set to:', reason);
                 }
             }
         }
@@ -563,6 +564,24 @@ async function handleLogout() {
     stopAutoRefresh();
     
     try {
+        // Remove FCM token from database before logging out
+        const fcmToken = localStorage.getItem('fcmToken');
+        if (fcmToken) {
+            try {
+                await fetch('/api/fcm/unsubscribe', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${currentToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ fcmToken })
+                });
+                console.log('FCM token removed from server');
+            } catch (fcmError) {
+                console.error('Error removing FCM token:', fcmError);
+            }
+        }
+        
         await fetch('/api/auth/logout', {
             method: 'POST',
             headers: {
@@ -578,6 +597,7 @@ async function handleLogout() {
     currentUser = null;
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('fcmToken');
     
     // Redirect to login page
     window.location.href = 'login.html';
@@ -1662,6 +1682,14 @@ async function confirmDeleteOrder() {
         return;
     }
     
+    // Validate deletion reason is provided
+    const reason = deletionReasonInput.value.trim();
+    if (!reason) {
+        alert('Please provide a reason for deleting this order.');
+        deletionReasonInput.focus();
+        return;
+    }
+    
     try {
         const response = await fetch(`/api/orders/${orderToDelete}`, {
             method: 'DELETE',
@@ -1670,7 +1698,7 @@ async function confirmDeleteOrder() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                deletionReason: deletionReasonInput.value || 'No reason provided'
+                deletionReason: reason
             })
         });
         

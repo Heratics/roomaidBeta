@@ -1210,6 +1210,24 @@ async function logout() {
         // Stop auto-refresh
         stopAutoRefresh();
         
+        // Remove FCM token from database before logging out
+        const fcmToken = localStorage.getItem('fcmToken');
+        if (fcmToken) {
+            try {
+                await fetch('/api/fcm/unsubscribe', {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ fcmToken })
+                });
+                console.log('FCM token removed from server');
+            } catch (fcmError) {
+                console.error('Error removing FCM token:', fcmError);
+            }
+        }
+        
         await fetch('/api/auth/logout', {
             method: 'POST',
             headers: {
@@ -1223,6 +1241,7 @@ async function logout() {
         // Clear stored tokens from persistent storage
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('fcmToken');
         
         // Redirect to login
         window.location.href = '/login.html';

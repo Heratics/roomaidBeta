@@ -433,6 +433,9 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
     // Get order data before deletion for logging
     const orderData = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
     
+    // Clear any scheduled reminders for this order
+    orderNotifications.clearReminders(id);
+    
     // Soft delete the order by setting deleted_at timestamp
     await db.query(`
       UPDATE ${tableName} 
@@ -1574,7 +1577,7 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
       new Date()
     ]);
 
-    const newUserId = result[0].insertId;
+    const newUserId = result.insertId;
 
     res.json({
       success: true,
@@ -1763,10 +1766,34 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
 
+    // Check if user has related data that would prevent deletion
+    const ordersCreated = await db.query(`
+      SELECT COUNT(*) as count FROM (
+        SELECT id FROM engineering_orders WHERE sent_by = ?
+        UNION ALL
+        SELECT id FROM housekeeping_orders WHERE sent_by = ?
+      ) as all_orders
+    `, [id, id]);
+
+    const ordersAssigned = await db.query(`
+      SELECT COUNT(*) as count FROM (
+        SELECT id FROM engineering_orders WHERE assigned_to = ?
+        UNION ALL
+        SELECT id FROM housekeeping_orders WHERE assigned_to = ?
+      ) as all_orders
+    `, [id, id]);
+
+    if (ordersCreated[0].count > 0 || ordersAssigned[0].count > 0) {
+      return res.status(400).json({ 
+        error: `Cannot delete user. This user has ${ordersCreated[0].count} order(s) created and ${ordersAssigned[0].count} order(s) assigned. Please reassign or delete these orders first.` 
+      });
+    }
+
+    // Delete related FCM tokens first (no constraint issue)
+    await db.query(`DELETE FROM fcm_tokens WHERE user_id = ?`, [id]);
+
     // Delete the user
-    await db.query(`
-      DELETE FROM users WHERE id = ?
-    `, [id]);
+    await db.query(`DELETE FROM users WHERE id = ?`, [id]);
 
     res.json({
       success: true,
@@ -1774,6 +1801,14 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Delete user error:', error);
+    
+    // Check if it's a foreign key constraint error
+    if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+      return res.status(400).json({ 
+        error: 'Cannot delete user. This user has related data (orders, logs, etc.). Please remove or reassign related data first.' 
+      });
+    }
+    
     res.status(500).json({ error: 'Internal server error' });
   }
 });
