@@ -127,6 +127,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (logsMenuItem && isPrivileged) {
                 logsMenuItem.style.display = 'flex';
             }
+            // Show manager dashboard for managers, admins, and supervisors
+            if (managerMenuItem && isPrivileged) {
+                managerMenuItem.style.display = 'flex';
+            }
 
             initializePushNotifications();
             showDashboard();
