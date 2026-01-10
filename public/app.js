@@ -997,8 +997,14 @@ async function initializePushNotifications() {
         const token = await messaging.getToken({ vapidKey, serviceWorkerRegistration: swRegistration });
 
         if (token) {
-            console.log('✅ FCM Token obtained:', token.substring(0, 20) + '...');
-            await saveFCMTokenToServer(token);
+            const previousToken = localStorage.getItem('fcmToken');
+            if (previousToken !== token) {
+                console.log('✅ New FCM Token obtained:', token.substring(0, 20) + '...');
+                await saveFCMTokenToServer(token);
+                localStorage.setItem('fcmToken', token);
+            } else {
+                console.log('ℹ️ FCM token unchanged, not re-sending');
+            }
             pushSubscription = { token };
         } else {
             console.log('No FCM token available');
@@ -1100,6 +1106,15 @@ window.handleFCMMessage = function(payload) {
             level: parseInt(notificationData.level) || 0,
             creatorName: notificationData.creatorName || 'Unknown'
         };
+
+        // Prevent duplicate toasts when both polling and FCM fire
+        const dedupeKey = notif.level === 0
+            ? `${notif.id}-new`
+            : `${notif.id}-${notif.level}`;
+        if (seenNotificationIds.has(dedupeKey)) {
+            return;
+        }
+        seenNotificationIds.add(dedupeKey);
         
         // Show appropriate notification based on level
         if (notif.level === 0) {
