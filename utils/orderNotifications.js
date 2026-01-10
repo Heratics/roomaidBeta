@@ -4,7 +4,7 @@
  */
 
 const db = require('../database');
-const notificationRoutes = require('../routes/notifications');
+const { sendFCMNotification } = require('../routes/fcm');
 
 // Store reminder timeouts
 const reminderTimeouts = new Map();
@@ -27,30 +27,20 @@ async function notifyNewOrder(orderId, department, hotelCode, orderDetails) {
             return;
         }
         
-        // Send notification to each user
-        for (const user of users) {
-            try {
-                const subscriptions = await db.query(`
-                    SELECT * FROM notf 
-                    WHERE user_id = ? 
-                    ORDER BY created_at DESC 
-                    LIMIT 1
-                `, [user.id]);
-                
-                const subscription = subscriptions.length > 0 ? subscriptions[0] : null;
-                
-                if (subscription) {
-                    await sendPushNotification(subscription, {
-                        title: '🆕 New Order Received!',
-                        body: `Room ${orderDetails.roomNumber || 'N/A'}: ${orderDetails.notes || 'Service Request'}`,
-                        url: '/',
-                        urgent: false,
-                        orderId: orderId
-                    });
+        // Send FCM notification to all users in the hotel
+        const userIds = users.map(u => u.id);
+        if (userIds.length > 0) {
+            await sendFCMNotification(userIds, {
+                title: '🆕 New Order Received!',
+                body: `Room ${orderDetails.roomNumber || 'N/A'}: ${orderDetails.notes || 'Service Request'}`,
+                data: {
+                    url: '/',
+                    urgent: false,
+                    orderId: orderId,
+                    type: 'order-notification',
+                    timestamp: new Date().toISOString()
                 }
-            } catch (err) {
-                console.error(`Error sending notification to user ${user.id}:`, err);
-            }
+            });
         }
         
         // Schedule reminder notifications
@@ -91,26 +81,20 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
                         SELECT id FROM users 
                         WHERE hotel_code = ?
                     `, [hotelCode]);
-                    
-                    for (const user of users) {
-                        const subscriptions = await db.query(`
-                            SELECT * FROM notf 
-                            WHERE user_id = ? 
-                            ORDER BY created_at DESC 
-                            LIMIT 1
-                        `, [user.id]);
-                        
-                        const subscription = subscriptions.length > 0 ? subscriptions[0] : null;
-                        
-                        if (subscription) {
-                            await sendPushNotification(subscription, {
-                                title: message,
-                                body: `Room ${orderDetails.roomNumber || 'N/A'}: ${orderDetails.notes || 'Service Request'} - ${minutes} minutes old`,
+
+                    const userIds = users.map(u => u.id);
+                    if (userIds.length > 0) {
+                        await sendFCMNotification(userIds, {
+                            title: message,
+                            body: `Room ${orderDetails.roomNumber || 'N/A'}: ${orderDetails.notes || 'Service Request'} - ${minutes} minutes old`,
+                            data: {
                                 url: '/',
                                 urgent: minutes >= 8,
-                                orderId: orderId
-                            });
-                        }
+                                orderId: orderId,
+                                type: 'order-reminder',
+                                timestamp: new Date().toISOString()
+                            }
+                        });
                     }
                 } catch (error) {
                     console.error(`Error sending ${minutes}-minute reminder:`, error);
@@ -136,27 +120,20 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
                     SELECT id FROM users 
                     WHERE hotel_code = ? AND role = 'admin'
                 `, [hotelCode]);
-                
-                for (const supervisor of supervisors) {
-                    const subscriptions = await db.query(`
-                        SELECT * FROM notf 
-                        WHERE user_id = ? 
-                        ORDER BY created_at DESC 
-                        LIMIT 1
-                    `, [supervisor.id]);
-                    
-                    const subscription = subscriptions.length > 0 ? subscriptions[0] : null;
-                    
-                    if (subscription) {
-                        await sendPushNotification(subscription, {
-                            title: '🚨 URGENT: Unaccepted Order Alert',
-                            body: `Order #${orderId} in Room ${orderDetails.roomNumber || 'N/A'} has not been accepted for 15 minutes!`,
+
+                const supervisorIds = supervisors.map(s => s.id);
+                if (supervisorIds.length > 0) {
+                    await sendFCMNotification(supervisorIds, {
+                        title: '🚨 URGENT: Unaccepted Order Alert',
+                        body: `Order #${orderId} in Room ${orderDetails.roomNumber || 'N/A'} has not been accepted for 15 minutes!`,
+                        data: {
                             url: '/',
                             urgent: true,
                             orderId: orderId,
-                            requireInteraction: true
-                        });
-                    }
+                            type: 'order-escalation',
+                            timestamp: new Date().toISOString()
+                        }
+                    });
                 }
             } catch (error) {
                 console.error('Error sending supervisor notification:', error);
@@ -171,41 +148,8 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
 }
 
 /**
- * Send push notification helper
+ * FCM-based notifications are handled via routes/fcm.js
  */
-async function sendPushNotification(subscription, data) {
-    const webpush = require('web-push');
-    
-    const pushSubscription = {
-        endpoint: subscription.endpoint,
-        keys: {
-            p256dh: subscription.p256dh_key,
-            auth: subscription.auth_key
-        }
-    };
-    
-    const payload = JSON.stringify({
-        title: data.title,
-        body: data.body,
-        url: data.url || '/',
-        urgent: data.urgent || false,
-        orderId: data.orderId || null,
-        type: data.type || 'order-notification',
-        requireInteraction: data.requireInteraction || false,
-        timestamp: new Date().toISOString()
-    });
-    
-    try {
-        await webpush.sendNotification(pushSubscription, payload);
-    } catch (error) {
-        console.error('Error sending push notification:', error);
-        // If subscription is invalid, remove it
-        if (error.statusCode === 410) {
-            await db.query('DELETE FROM notf WHERE user_id = ?', [subscription.user_id]);
-        }
-        throw error;
-    }
-}
 
 /**
  * Clear all reminders for an order (called when order is accepted)

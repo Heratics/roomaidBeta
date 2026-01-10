@@ -11,20 +11,35 @@ const auth = require('../auth');
 let admin = null;
 let fcmInitialized = false;
 
+// Helper: load service account from env and fix private_key newlines
+function loadServiceAccountFromEnv() {
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!raw) return null;
+    try {
+        const obj = JSON.parse(raw);
+        // Render often stores private_key with escaped newlines ("\\n"); convert to real newlines
+        if (obj.private_key && obj.private_key.includes('\\n')) {
+            obj.private_key = obj.private_key.replace(/\\n/g, '\n');
+        }
+        return obj;
+    } catch (e) {
+        console.warn('⚠️  Invalid FIREBASE_SERVICE_ACCOUNT JSON. Check env formatting.');
+        return null;
+    }
+}
+
 try {
     // Check if firebase-admin is installed
     admin = require('firebase-admin');
     
-    // Initialize Firebase Admin with service account
-    // You can use environment variables or a service account JSON file
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT 
-        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-        : null;
+    // Initialize Firebase Admin with service account loaded from env
+    const serviceAccount = loadServiceAccountFromEnv();
 
     if (serviceAccount) {
+        const projectId = serviceAccount.project_id || process.env.FCM_PROJECT_ID || 'roomaidnotf';
         admin.initializeApp({
             credential: admin.credential.cert(serviceAccount),
-            projectId: 'roomaidnotf'
+            projectId
         });
         fcmInitialized = true;
         console.log('✅ Firebase Admin SDK initialized successfully');
@@ -158,33 +173,40 @@ function createFCMRoutes(app) {
                     });
                 }
 
-                const fetch = require('node-fetch');
-                const promises = fcmTokens.map(token => 
-                    fetch('https://fcm.googleapis.com/fcm/send', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `key=${serverKey}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            to: token,
-                            notification: {
-                                title: title || 'RoomAid Notification',
-                                body: body || 'You have a new notification'
-                            },
-                            data: data || {}
-                        })
-                    })
-                );
+                        // Load fetch compatibly (Node 18+ global or dynamic import of node-fetch v3)
+                        const getFetch = async () => {
+                            if (typeof fetch === 'function') return fetch;
+                            const mod = await import('node-fetch');
+                            return mod.default;
+                        };
 
-                const results = await Promise.allSettled(promises);
-                sentCount = results.filter(r => r.status === 'fulfilled').length;
+                        const fetchFn = await getFetch();
+                        const promises = fcmTokens.map(token => 
+                            fetchFn('https://fcm.googleapis.com/fcm/send', {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `key=${serverKey}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    to: token,
+                                    notification: {
+                                        title: title || 'RoomAid Notification',
+                                        body: body || 'You have a new notification'
+                                    },
+                                    data: data || {}
+                                })
+                            })
+                        );
 
-                res.json({ 
-                    success: true, 
-                    sent: sentCount,
-                    failed: results.filter(r => r.status === 'rejected').length
-                });
+                        const results = await Promise.allSettled(promises);
+                        sentCount = results.filter(r => r.status === 'fulfilled').length;
+
+                        res.json({ 
+                            success: true, 
+                            sent: sentCount,
+                            failed: results.filter(r => r.status === 'rejected').length
+                        });
             }
         } catch (error) {
             console.error('Error sending FCM notification:', error);

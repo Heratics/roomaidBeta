@@ -174,23 +174,22 @@ class Database {
         )
       `);
 
-      // Create Push Subscriptions table for web push notifications
+      // Create FCM tokens table for Firebase push notifications
       await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS push_subscriptions (
-          id INT AUTO_INCREMENT PRIMARY KEY,
+        CREATE TABLE IF NOT EXISTS fcm_tokens (
+          id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
           user_id INT NOT NULL,
-          username VARCHAR(50),
-          endpoint VARCHAR(500) NOT NULL UNIQUE,
-          auth_key VARCHAR(100),
-          p256dh_key VARCHAR(200),
-          hotel_code VARCHAR(50),
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          username VARCHAR(255) NOT NULL,
+          fcm_token TEXT NOT NULL,
+          device_info JSON DEFAULT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users(id),
-          FOREIGN KEY (hotel_code) REFERENCES hotels(code),
           INDEX idx_user_id (user_id),
-          INDEX idx_hotel_code (hotel_code)
-        )
+          INDEX idx_username (username),
+          INDEX idx_created_at (created_at),
+          UNIQUE KEY uniq_user_token (user_id, (fcm_token(255)))
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
 
       console.log('✅ Database tables created/verified');
