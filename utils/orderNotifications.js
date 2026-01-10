@@ -69,10 +69,9 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
     
     reminderTimes.forEach(({ minutes, message }) => {
         const timeout = setTimeout(async () => {
-            // Check if order is still unaccepted
-            const order = await getOrderStatus(orderId);
+            const pending = await isOrderStillPending(orderId);
             
-            if (order && !order.assigned_to && !order.completed_at) {
+            if (pending) {
                 console.log(`Sending ${minutes}-minute reminder for order ${orderId}`);
                 
                 try {
@@ -100,7 +99,8 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
                     console.error(`Error sending ${minutes}-minute reminder:`, error);
                 }
             } else {
-                console.log(`Order ${orderId} already accepted, skipping ${minutes}-minute reminder`);
+                console.log(`Order ${orderId} no longer pending, skipping ${minutes}-minute reminder`);
+                clearReminders(orderId);
             }
         }, minutes * 60 * 1000); // Convert minutes to milliseconds
         
@@ -109,9 +109,9 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
     
     // Schedule supervisor notification after 15 minutes
     const supervisorTimeout = setTimeout(async () => {
-        const order = await getOrderStatus(orderId);
+        const pending = await isOrderStillPending(orderId);
         
-        if (order && !order.assigned_to && !order.completed_at) {
+        if (pending) {
             console.log(`Order ${orderId} still pending after 15 minutes, notifying supervisors`);
             
             try {
@@ -138,6 +138,9 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
             } catch (error) {
                 console.error('Error sending supervisor notification:', error);
             }
+        } else {
+            console.log(`Order ${orderId} no longer pending at 15 minutes, skipping supervisor notification`);
+            clearReminders(orderId);
         }
     }, 15 * 60 * 1000); // 15 minutes
     
@@ -163,15 +166,27 @@ function clearReminders(orderId) {
     }
 }
 
+// Periodic safety net: every 30s clear reminders for orders that are no longer pending/deleted
+setInterval(async () => {
+    const ids = Array.from(reminderTimeouts.keys());
+    for (const id of ids) {
+        const pending = await isOrderStillPending(id);
+        if (!pending) {
+            console.log(`🔍 Cleanup: clearing reminders for non-pending/deleted order ${id}`);
+            clearReminders(id);
+        }
+    }
+}, 30 * 1000);
+
 /**
  * Get order status from database
  */
 async function getOrderStatus(orderId) {
     try {
         const results = await db.query(`
-            SELECT * FROM engineering_orders WHERE id = ?
+            SELECT * FROM engineering_orders WHERE id = ? AND deleted_at IS NULL
             UNION ALL
-            SELECT * FROM housekeeping_orders WHERE id = ?
+            SELECT * FROM housekeeping_orders WHERE id = ? AND deleted_at IS NULL
         `, [orderId, orderId]);
         
         return results.length > 0 ? results[0] : null;
@@ -179,6 +194,11 @@ async function getOrderStatus(orderId) {
         console.error('Error getting order status:', error);
         return null;
     }
+}
+
+async function isOrderStillPending(orderId) {
+    const order = await getOrderStatus(orderId);
+    return Boolean(order && !order.assigned_to && !order.completed_at);
 }
 
 /**

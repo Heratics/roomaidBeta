@@ -25,10 +25,16 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
     console.log('Background message received:', payload);
 
-    const notificationTitle = payload.notification?.title || 'RoomAid Notification';
+    // Avoid double notifications: when FCM includes a notification payload,
+    // the browser will already show it. Only show manually for data-only messages.
+    if (payload.notification) {
+        return;
+    }
+
+    const notificationTitle = payload.data?.title || 'RoomAid Notification';
     const notificationOptions = {
-        body: payload.notification?.body || 'New notification',
-        icon: payload.notification?.icon || '/RoomAidTaskBoard.png',
+        body: payload.data?.body || 'New notification',
+        icon: payload.data?.icon || '/RoomAidTaskBoard.png',
         badge: '/RoomAidTaskBoard.png',
         tag: payload.data?.orderId || 'roomaid-notification',
         data: payload.data,
@@ -46,7 +52,6 @@ messaging.onBackgroundMessage((payload) => {
         ]
     };
 
-    // Show notification
     return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
