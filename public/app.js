@@ -832,7 +832,7 @@ async function checkPendingNotifications() {
                     if (!seenNotificationIds.has(`${notif.id}-${notif.level}`)) {
                         seenNotificationIds.add(`${notif.id}-${notif.level}`);
                         showPendingOrderNotification(notif);
-                        //sendPushNotificationToDevice(notif);
+                        sendPushNotificationToDevice(notif);
                     }
                 });
             }
@@ -1185,12 +1185,8 @@ function handleNewOrders(orders, department) {
     if (!Array.isArray(orders) || orders.length === 0) return;
     const newOrders = orders.filter(o => !seenOrderIds.has(o.id));
     newOrders.forEach(o => seenOrderIds.add(o.id));
-
-    newOrders.forEach(order => {
-        if (currentUser && order.sent_by !== currentUser.id) {
-            showOrderToast(order, department);
-        }
-    });
+    // Toast notifications are handled by FCM push and polling checks
+    // No need to create duplicate toasts here during auto-refresh
 }
 
 function initToastContainer() {
