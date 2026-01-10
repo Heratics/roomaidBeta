@@ -1202,26 +1202,9 @@ window.handleFCMMessage = function(payload) {
         const notificationData = payload.data || {};
         const notification = payload.notification || {};
         
-        // For reminder notifications (no level data), show browser notification
+        // For reminder notifications, show only in-app toast (service worker handles browser notifications)
         if (notificationData.type === 'order-reminder' || notificationData.type === 'order-escalation') {
-            // Show browser notification even when app is in foreground
-            if (Notification.permission === 'granted') {
-                const browserNotif = new Notification(notification.title || 'RoomAid Reminder', {
-                    body: notification.body,
-                    icon: '/RoomAidTaskBoard.png',
-                    badge: '/RoomAidTaskBoard.png',
-                    tag: notificationData.orderId || 'reminder',
-                    requireInteraction: notificationData.urgent === 'true',
-                    data: notificationData
-                });
-                
-                browserNotif.onclick = function() {
-                    window.focus();
-                    this.close();
-                };
-            }
-            
-            // Also show in-app toast
+            // Show in-app toast when app is in foreground
             const notif = {
                 id: notificationData.orderId || Date.now(),
                 order_name: notification.body || 'Reminder',
