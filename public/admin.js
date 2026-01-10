@@ -10,7 +10,7 @@ let isLoading = false;
 let lastRequestTime = 0;
 const REQUEST_THROTTLE = 500; // Minimum 500ms between requests (reduced from 1000ms)
 let autoRefreshInterval = null;
-const AUTO_REFRESH_INTERVAL = 3000; // 3 seconds
+const AUTO_REFRESH_INTERVAL = 0; // Disabled - users must manually refresh
 
 // Pagination variables
 let currentPage = 1;
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
                 loadUsers();
                 loadHotels();
-                startAutoRefresh();
+                // Auto-refresh disabled - users must manually click refresh button
             }, 100);
         } else {
             showAlert('Access denied. Admin privileges required.', 'error');
@@ -370,7 +370,7 @@ async function handleAdminLogin(event) {
                 setTimeout(() => {
                     loadUsers();
                     loadHotels();
-                    startAutoRefresh();
+                    // Auto-refresh disabled - users must click refresh button
                 }, 100);
             }, 1000);
             
@@ -939,21 +939,11 @@ async function deleteUser(userId) {
 
 /**
  * Start auto-refresh for users
+ * DISABLED - Users must use manual refresh button
  */
 function startAutoRefresh() {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-    }
-    
-    autoRefreshInterval = setInterval(() => {
-        const currentSection = document.querySelector('.admin-section.active');
-        if (currentSection && currentSection.id === 'users-section') {
-            // Only auto-refresh if we're on the users section and not currently loading
-            if (!isLoading) {
-                loadUsers('', true);
-            }
-        }
-    }, AUTO_REFRESH_INTERVAL);
+    // Auto-refresh disabled. Users can click the refresh button to manually update the list.
+    console.log('Auto-refresh disabled. Click the refresh button to update.');
 }
 
 /**
