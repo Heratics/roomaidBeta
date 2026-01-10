@@ -35,8 +35,8 @@ async function notifyNewOrder(orderId, department, hotelCode, orderDetails) {
                 body: `Room ${orderDetails.roomNumber || 'N/A'}: ${orderDetails.notes || 'Service Request'}`,
                 data: {
                     url: '/',
-                    urgent: false,
-                    orderId: orderId,
+                    urgent: 'false',
+                    orderId: String(orderId),
                     type: 'order-notification',
                     timestamp: new Date().toISOString()
                 }
@@ -89,8 +89,8 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
                             body: `Room ${orderDetails.roomNumber || 'N/A'}: ${orderDetails.notes || 'Service Request'} - ${minutes} minutes old`,
                             data: {
                                 url: '/',
-                                urgent: minutes >= 8,
-                                orderId: orderId,
+                                urgent: String(minutes >= 8),
+                                orderId: String(orderId),
                                 type: 'order-reminder',
                                 timestamp: new Date().toISOString()
                             }
@@ -128,8 +128,8 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
                         body: `Order #${orderId} in Room ${orderDetails.roomNumber || 'N/A'} has not been accepted for 15 minutes!`,
                         data: {
                             url: '/',
-                            urgent: true,
-                            orderId: orderId,
+                            urgent: 'true',
+                            orderId: String(orderId),
                             type: 'order-escalation',
                             timestamp: new Date().toISOString()
                         }

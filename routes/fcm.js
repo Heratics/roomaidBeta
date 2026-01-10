@@ -148,12 +148,20 @@ function createFCMRoutes(app) {
 
             // Send via Firebase Admin SDK if available
             if (fcmInitialized && admin) {
+                // FCM requires all data values to be strings
+                const messageData = {};
+                if (data) {
+                    Object.keys(data).forEach(key => {
+                        messageData[key] = String(data[key]);
+                    });
+                }
+                
                 const message = {
                     notification: {
                         title: title || 'RoomAid Notification',
                         body: body || 'You have a new notification'
                     },
-                    data: data || {},
+                    data: messageData,
                     tokens: fcmTokens
                 };
 
@@ -273,12 +281,20 @@ async function sendFCMNotification(userIds, notification) {
         const fcmTokens = tokens.map(t => t.fcm_token);
 
         if (fcmInitialized && admin) {
+            // FCM requires all data values to be strings
+            const messageData = {};
+            if (notification.data) {
+                Object.keys(notification.data).forEach(key => {
+                    messageData[key] = String(notification.data[key]);
+                });
+            }
+            
             const message = {
                 notification: {
                     title: notification.title || 'RoomAid',
                     body: notification.body || 'New notification'
                 },
-                data: notification.data || {},
+                data: messageData,
                 tokens: fcmTokens
             };
 
