@@ -350,6 +350,130 @@
             .admin-header {
                 padding-bottom: 60px;
             }
+
+            .admin-header h1 {
+                font-size: 1.5rem;
+            }
+
+            .admin-header p {
+                font-size: 0.9rem;
+            }
+
+            .admin-nav {
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: 12px;
+            }
+
+            .nav-btn {
+                flex: 1 1 calc(50% - 8px);
+                min-width: 120px;
+                padding: 12px;
+                font-size: 0.9rem;
+            }
+
+            .admin-content {
+                padding: 15px;
+            }
+
+            .form-group {
+                margin-bottom: 15px;
+            }
+
+            .form-group label {
+                font-size: 0.9rem;
+            }
+
+            .form-group input,
+            .form-group select {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+
+            .btn-primary {
+                padding: 12px 20px;
+                font-size: 0.9rem;
+                width: 100%;
+            }
+
+            .users-table {
+                font-size: 0.85rem;
+            }
+
+            .users-table th,
+            .users-table td {
+                padding: 8px 4px;
+            }
+
+            .btn-danger {
+                padding: 6px 10px;
+                font-size: 0.75rem;
+            }
+
+            /* Make modals more mobile-friendly */
+            #editUserModal > div,
+            #editHotelModal > div,
+            #deleteUserModal .modal-content,
+            #deleteHotelModal .modal-content {
+                width: 95% !important;
+                max-width: 95% !important;
+                padding: 20px !important;
+                margin: 10px;
+            }
+
+            #editUserModal h2,
+            #editHotelModal h2 {
+                font-size: 1.3rem;
+            }
+
+            /* Stack form buttons vertically on mobile */
+            #editUserModal form > div:last-child,
+            #editHotelModal form > div:last-child {
+                flex-direction: column;
+            }
+
+            #editUserModal button,
+            #editHotelModal button {
+                width: 100%;
+            }
+
+            /* Checkbox lists */
+            .form-group label[style*="flex"] {
+                padding: 8px 0;
+            }
+
+            /* Tables should be scrollable on mobile */
+            .users-table,
+            #hotels-table {
+                display: block;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            /* Hide less important columns on mobile */
+            .users-table th:nth-child(5),
+            .users-table td:nth-child(5) {
+                display: none; /* Hide created date on mobile */
+            }
+
+            /* Pagination */
+            .pagination-controls {
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+
+            .pagination-controls button {
+                padding: 6px 10px;
+                font-size: 0.85rem;
+            }
+
+            /* Alert messages */
+            #alert {
+                width: 90%;
+                left: 5%;
+                transform: none;
+                font-size: 0.9rem;
+            }
         }
     </style>
 </head>

@@ -1089,28 +1089,82 @@ body {
         flex-direction: column;
         gap: 1rem;
         text-align: center;
+        padding: 1rem;
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .hotel-name {
+        font-size: 1rem;
     }
     
     /* Stack dashboard controls vertically on mobile */
     .dashboard-controls {
         flex-direction: column;
         align-items: stretch;
+        gap: 0.75rem;
     }
     
-    /* Center tab buttons on mobile */
+    /* Make tab buttons wrap and shrink on mobile */
     .tab-buttons {
+        flex-wrap: wrap;
         justify-content: center;
+        gap: 0.5rem;
+    }
+
+    /* Smaller tab buttons with emoji-only or shorter text */
+    .tab-btn {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+        flex: 0 1 auto;
+        min-width: 100px;
+        white-space: nowrap;
+    }
+
+    /* Make date filter full width on mobile */
+    .date-filter {
+        width: 100%;
+    }
+
+    .date-filter input {
+        width: 100%;
+        font-size: 0.9rem;
     }
     
     /* Adjust modal content for mobile */
     .modal-content {
         margin: 1rem;
         padding: 1.5rem;
+        max-width: 95%;
+        width: 95%;
+    }
+
+    .modal-header h2 {
+        font-size: 1.3rem;
     }
     
     /* Stack modal action buttons vertically on mobile */
     .modal-actions {
         flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .modal-actions button {
+        width: 100%;
+    }
+
+    /* Adjust form inputs for mobile */
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 0.9rem;
+        padding: 0.75rem;
+    }
+
+    .form-group label {
+        font-size: 0.9rem;
     }
     
     /* Adjust theme toggle position on mobile */
@@ -1129,6 +1183,68 @@ body {
         height: 50px;
         padding: 15px;
         font-size: 1.5rem;
+    }
+
+    /* Orders list adjustments */
+    .orders-list {
+        gap: 0.75rem;
+    }
+
+    .order-card {
+        padding: 1rem;
+    }
+
+    .order-header h3 {
+        font-size: 1rem;
+    }
+
+    .order-meta {
+        font-size: 0.8rem;
+    }
+
+    /* Adjust buttons in order cards */
+    .order-actions button {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    /* Logs section */
+    .logs-list {
+        gap: 0.75rem;
+    }
+
+    .log-item {
+        padding: 0.75rem;
+    }
+
+    .log-title {
+        font-size: 0.9rem;
+    }
+
+    .log-meta {
+        font-size: 0.75rem;
+    }
+
+    /* Notification badge */
+    .notification-badge {
+        width: 20px;
+        height: 20px;
+        font-size: 0.7rem;
+    }
+
+    /* Settings dropdown */
+    .settings-dropdown {
+        right: 0;
+        min-width: 160px;
+    }
+
+    /* Alert messages */
+    .alert {
+        width: 90%;
+        left: 5%;
+        transform: none;
+        font-size: 0.9rem;
+        padding: 0.75rem;
     }
 }
 

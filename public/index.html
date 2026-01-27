@@ -145,6 +145,20 @@
                 min-width: 180px;
                 right: 0;
             }
+
+            /* Additional mobile adjustments */
+            body {
+                padding: 0;
+            }
+
+            .container {
+                padding: 0.5rem;
+            }
+
+            /* Hide "Select Department" placeholder text on very small screens */
+            .tab-btn[data-department]::before {
+                content: attr(data-department);
+            }
         }
         
         .logs-section {
