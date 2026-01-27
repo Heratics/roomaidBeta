@@ -1956,7 +1956,7 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
       await db.query(`DELETE FROM users WHERE hotel_code = ?`, [hotelCode]);
     }
 
-    // Delete hotel
+    // Delete hotel (hotel_departments will cascade delete automatically)
     await db.query(`
       DELETE FROM hotels WHERE id = ?
     `, [id]);
@@ -1967,7 +1967,11 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Delete hotel error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error details:', error.message, error.code);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
   }
 });
 
