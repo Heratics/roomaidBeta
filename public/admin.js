@@ -931,11 +931,13 @@ function editUser(userId) {
     
     if (user.role === 'employee') {
         if (editDepartmentField) editDepartmentField.style.display = 'flex';
-        if (editDepartment) editDepartment.value = user.department || '';
         
-        // Load hotel departments for filtering
+        // Load hotel departments for filtering and set current department
         if (user.hotel_code) {
-            loadHotelDepartmentsForEdit(user.hotel_code);
+            loadHotelDepartmentsForEdit(user.hotel_code, user.department);
+        } else {
+            // Fallback if no hotel code
+            if (editDepartment) editDepartment.value = user.department || '';
         }
     } else {
         if (editDepartmentField) editDepartmentField.style.display = 'none';
@@ -1606,10 +1608,10 @@ function toggleSettingsMenu() {
 /**
  * Update department dropdown options
  */
-function updateDepartmentOptions(selectElement, departments) {
+function updateDepartmentOptions(selectElement, departments, preSelectedValue = null) {
     if (!selectElement) return;
 
-    const currentValue = selectElement.value;
+    const currentValue = preSelectedValue || selectElement.value;
     selectElement.innerHTML = '<option value="">Select Department</option>';
     
     departments.forEach(dept => {
@@ -1619,8 +1621,8 @@ function updateDepartmentOptions(selectElement, departments) {
         selectElement.appendChild(option);
     });
 
-    // Restore previous selection if still valid
-    if (departments.includes(currentValue)) {
+    // Set the preselected value or restore previous selection if still valid
+    if (currentValue && departments.includes(currentValue)) {
         selectElement.value = currentValue;
     }
 }
@@ -1628,7 +1630,7 @@ function updateDepartmentOptions(selectElement, departments) {
 /**
  * Load hotel departments for edit modal
  */
-async function loadHotelDepartmentsForEdit(hotelCode) {
+async function loadHotelDepartmentsForEdit(hotelCode, currentDepartment = null) {
     if (!hotelCode) return;
     
     try {
@@ -1642,7 +1644,7 @@ async function loadHotelDepartmentsForEdit(hotelCode) {
         if (response.ok) {
             const result = await response.json();
             const editDepartment = document.getElementById('editDepartment');
-            updateDepartmentOptions(editDepartment, result.departments);
+            updateDepartmentOptions(editDepartment, result.departments, currentDepartment);
         }
     } catch (error) {
         console.error('Error loading hotel departments:', error);
