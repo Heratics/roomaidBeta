@@ -431,6 +431,17 @@
                         </select>
                     </div>
                     
+                    <div class="form-group" id="departmentFieldAdd" style="display:none;">
+                        <label for="department">Department (for employees only):</label>
+                        <select id="department" name="department">
+                            <option value="">Select Department</option>
+                            <option value="Engineering">Engineering</option>
+                            <option value="Housekeeping">Housekeeping</option>
+                            <option value="Laundry">Laundry</option>
+                            <option value="Room Service">Room Service</option>
+                        </select>
+                    </div>
+                    
                     <button type="submit" class="btn-primary">Add User</button>
                 </form>
             </div>
@@ -569,6 +580,46 @@
                     <button type="submit" style="flex: 1; padding: 10px; background: var(--brand-primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">Save Changes</button>
                 </div>
             </form>
+        </div>
+    </div>
+    
+    <!-- Delete User Confirmation Modal -->
+    <div id="deleteUserModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>⚠️ Delete User with Orders</h2>
+                <button class="close-btn" onclick="closeDeleteUserModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteUserMessage" style="margin-bottom: 20px; color: var(--text-primary);"></p>
+                <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+                    <strong>Note:</strong> Orders created by this user will remain but show as "Deleted User".
+                </p>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button class="btn-secondary" onclick="closeDeleteUserModal()" style="padding: 10px 20px;">Cancel</button>
+                    <button class="btn-danger" onclick="confirmDeleteUserOverride()" style="padding: 10px 20px;">Delete Anyway</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Hotel Confirmation Modal -->
+    <div id="deleteHotelModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>⚠️ Delete Hotel with Users</h2>
+                <button class="close-btn" onclick="closeDeleteHotelModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteHotelMessage" style="margin-bottom: 20px; color: var(--text-primary);"></p>
+                <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 20px;">
+                    <strong>Warning:</strong> This will permanently delete the hotel and all its users. Orders will remain but show as "Deleted User".
+                </p>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button class="btn-secondary" onclick="closeDeleteHotelModal()" style="padding: 10px 20px;">Cancel</button>
+                    <button class="btn-danger" onclick="confirmDeleteHotelOverride()" style="padding: 10px 20px;">Delete Hotel & Users</button>
+                </div>
+            </div>
         </div>
     </div>
     

@@ -447,6 +447,30 @@ function setupFormHandlers() {
         addUserForm.addEventListener('submit', handleAddUser);
     }
     
+    // Add role change listener to show/hide department field
+    const roleSelect = document.getElementById('role');
+    const departmentFieldAdd = document.getElementById('departmentFieldAdd');
+    if (roleSelect && departmentFieldAdd) {
+        // Set initial state
+        if (roleSelect.value === 'employee') {
+            departmentFieldAdd.style.display = 'block';
+        } else {
+            departmentFieldAdd.style.display = 'none';
+        }
+        
+        // Listen for changes
+        roleSelect.addEventListener('change', function() {
+            if (this.value === 'employee') {
+                departmentFieldAdd.style.display = 'block';
+            } else {
+                departmentFieldAdd.style.display = 'none';
+                // Clear department selection when role is not employee
+                const departmentSelect = document.getElementById('department');
+                if (departmentSelect) departmentSelect.value = '';
+            }
+        });
+    }
+    
     // Edit user form
     const editUserForm = document.getElementById('editUserForm');
     if (editUserForm) {
@@ -473,13 +497,17 @@ async function handleAddUser(event) {
     }
     
     const formData = new FormData(event.target);
+    const role = formData.get('role');
+    const department = role === 'employee' ? formData.get('department') : null;
+    
     const userData = {
         firstName: formData.get('firstName'),
         lastName: formData.get('lastName'),
         username: formData.get('username'),
         password: formData.get('password'),
         hotelCode: formData.get('hotelCode'),
-        role: formData.get('role')
+        role: role,
+        department: department
     };
     
     try {
@@ -497,6 +525,9 @@ async function handleAddUser(event) {
         if (response.ok) {
             showAlert('User created successfully!', 'success');
             event.target.reset();
+            // Hide department field after reset
+            const departmentFieldAdd = document.getElementById('departmentFieldAdd');
+            if (departmentFieldAdd) departmentFieldAdd.style.display = 'none';
             loadUsers(); // Refresh users list
         } else {
             showAlert(result.error || 'Failed to create user', 'error');
@@ -902,11 +933,66 @@ async function handleEditUserSubmit(event) {
 /**
  * Delete a user
  */
+let userToDelete = null;
+
 async function deleteUser(userId) {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
-        return;
+    // First, check if user has orders
+    try {
+        const response = await fetch(`/api/admin/users/${userId}/check-orders`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.hasOrders) {
+            // User has orders, show override modal
+            userToDelete = userId;
+            showDeleteUserModal(result.ordersCreated, result.ordersAssigned);
+        } else {
+            // No orders, proceed with simple confirmation
+            if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+                performDeleteUser(userId, false);
+            }
+        }
+    } catch (error) {
+        console.error('Error checking user orders:', error);
+        // Fallback to simple delete
+        if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+            performDeleteUser(userId, false);
+        }
     }
+}
+
+function showDeleteUserModal(ordersCreated, ordersAssigned) {
+    const modal = document.getElementById('deleteUserModal');
+    const message = document.getElementById('deleteUserMessage');
     
+    if (modal && message) {
+        message.innerHTML = `This user has <strong>${ordersCreated}</strong> order(s) created and <strong>${ordersAssigned}</strong> order(s) assigned.<br><br>Are you sure you want to delete this user?`;
+        modal.style.display = 'flex';
+    }
+}
+
+function closeDeleteUserModal() {
+    const modal = document.getElementById('deleteUserModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    userToDelete = null;
+}
+
+function confirmDeleteUserOverride() {
+    if (userToDelete) {
+        performDeleteUser(userToDelete, true);
+        closeDeleteUserModal();
+    }
+}
+
+async function performDeleteUser(userId, override) {
     // Throttle requests
     if (!throttleRequest()) {
         showAlert('Please wait before making another request', 'error');
@@ -914,7 +1000,11 @@ async function deleteUser(userId) {
     }
     
     try {
-        const response = await fetch(`/api/admin/users/${userId}`, {
+        const url = override 
+            ? `/api/admin/users/${userId}?override=true`
+            : `/api/admin/users/${userId}`;
+            
+        const response = await fetch(url, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${authToken}`,
@@ -1136,11 +1226,66 @@ function populateHotelDropdown(hotels) {
 /**
  * Delete hotel
  */
+let hotelToDelete = null;
+
 async function deleteHotel(hotelId) {
-    if (!confirm('Are you sure you want to delete this hotel? This action cannot be undone.')) {
-        return;
+    // First, check if hotel has users
+    try {
+        const response = await fetch(`/api/admin/hotels/${hotelId}/check-users`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.hasUsers) {
+            // Hotel has users, show override modal
+            hotelToDelete = hotelId;
+            showDeleteHotelModal(result.userCount);
+        } else {
+            // No users, proceed with simple confirmation
+            if (confirm('Are you sure you want to delete this hotel? This action cannot be undone.')) {
+                performDeleteHotel(hotelId, false);
+            }
+        }
+    } catch (error) {
+        console.error('Error checking hotel users:', error);
+        // Fallback to simple delete
+        if (confirm('Are you sure you want to delete this hotel? This action cannot be undone.')) {
+            performDeleteHotel(hotelId, false);
+        }
     }
+}
+
+function showDeleteHotelModal(userCount) {
+    const modal = document.getElementById('deleteHotelModal');
+    const message = document.getElementById('deleteHotelMessage');
     
+    if (modal && message) {
+        message.innerHTML = `This hotel has <strong>${userCount}</strong> user(s).<br><br>Are you sure you want to delete this hotel and all its users?`;
+        modal.style.display = 'flex';
+    }
+}
+
+function closeDeleteHotelModal() {
+    const modal = document.getElementById('deleteHotelModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    hotelToDelete = null;
+}
+
+function confirmDeleteHotelOverride() {
+    if (hotelToDelete) {
+        performDeleteHotel(hotelToDelete, true);
+        closeDeleteHotelModal();
+    }
+}
+
+async function performDeleteHotel(hotelId, override) {
     // Throttle requests
     if (!throttleRequest()) {
         showAlert('Please wait before making another request', 'error');
@@ -1148,7 +1293,11 @@ async function deleteHotel(hotelId) {
     }
     
     try {
-        const response = await fetch(`/api/admin/hotels/${hotelId}`, {
+        const url = override 
+            ? `/api/admin/hotels/${hotelId}?override=true`
+            : `/api/admin/hotels/${hotelId}`;
+            
+        const response = await fetch(url, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${authToken}`,

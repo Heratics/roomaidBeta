@@ -221,9 +221,9 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
     const tableName = getDepartmentTableName(department);
     let query = `
       SELECT o.*, 
-             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
              creator.username as creatorUsername,
-             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
+             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username, 'Deleted User') as receiverName,
              assignee.username as receiverUsername
       FROM ${tableName} o
       LEFT JOIN users creator ON o.sent_by = creator.id
@@ -313,7 +313,7 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
     // Fetch the created order with creator information
     const orders = await db.query(`
       SELECT o.*, creator.username as creatorUsername, 
-             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName
+             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName
       FROM ${tableName} o
       LEFT JOIN users creator ON o.sent_by = creator.id
       WHERE o.id = ?
@@ -414,9 +414,9 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
     // Fetch the updated order with creator and assignee information
     const orders = await db.query(`
       SELECT o.*, 
-             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
              creator.username as creatorUsername,
-             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
+             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username, 'Deleted User') as receiverName,
              assignee.username as receiverUsername
       FROM ${tableName} o
       LEFT JOIN users creator ON o.sent_by = creator.id
@@ -582,9 +582,9 @@ app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
     console.log('Fetching updated order');
     const orders = await db.query(`
       SELECT o.*, 
-             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
              creator.username as creatorUsername,
-             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
+             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username, 'Deleted User') as receiverName,
              assignee.username as receiverUsername
       FROM ${tableName} o
       LEFT JOIN users creator ON o.sent_by = creator.id
@@ -770,9 +770,9 @@ app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
     if (tableName === 'engineering_orders') {
       orders = await db.query(`
         SELECT o.*, 
-               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
                creator.username as creatorUsername,
-               COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
+               COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username, 'Deleted User') as receiverName,
                assignee.username as receiverUsername
         FROM engineering_orders o
         LEFT JOIN users creator ON o.sent_by = creator.id
@@ -782,9 +782,9 @@ app.post('/api/orders/:id/hold', authenticateToken, async (req, res) => {
     } else {
       orders = await db.query(`
         SELECT o.*, 
-               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
                creator.username as creatorUsername,
-               COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
+               COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username, 'Deleted User') as receiverName,
                assignee.username as receiverUsername
         FROM housekeeping_orders o
         LEFT JOIN users creator ON o.sent_by = creator.id
@@ -904,9 +904,9 @@ app.get('/api/orders/deleted', authenticateToken, async (req, res) => {
     const tableName = department.toLowerCase() === 'engineering' ? 'engineering_orders' : 'housekeeping_orders';
     let query = `
       SELECT o.*, 
-             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+             COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
              creator.username as creatorUsername,
-             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
+             COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username, 'Deleted User') as receiverName,
              assignee.username as receiverUsername
       FROM ${tableName} o
       LEFT JOIN users creator ON o.sent_by = creator.id
@@ -1396,9 +1396,9 @@ app.get('/api/manager/reports/daily', authenticateToken, async (req, res) => {
       o.hold_reason,
       o.deleted_at,
       o.hotel_code,
-      COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+      COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
       creator.username as creatorUsername,
-      COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username) as receiverName,
+      COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username, 'Deleted User') as receiverName,
       assignee.username as receiverUsername,
       CASE
         WHEN o.deleted_at IS NOT NULL THEN 'deleted'
@@ -1689,14 +1689,57 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/admin/hotels/:id/check-users
+ * Check if a hotel has associated users
+ * Used before deletion to warn admin
+ */
+app.get('/api/admin/hotels/:id/check-users', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const { id } = req.params;
+
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Check if hotel exists and get its code
+    const existingHotel = await db.query(`
+      SELECT id, code FROM hotels WHERE id = ?
+    `, [id]);
+
+    if (existingHotel.length === 0) {
+      return res.status(404).json({ error: 'Hotel not found' });
+    }
+
+    const hotelCode = existingHotel[0].code;
+
+    // Check if hotel has users
+    const hotelUsers = await db.query(`
+      SELECT COUNT(*) as userCount FROM users WHERE hotel_code = ?
+    `, [hotelCode]);
+
+    res.json({
+      hasUsers: hotelUsers[0].userCount > 0,
+      userCount: hotelUsers[0].userCount
+    });
+  } catch (error) {
+    console.error('Check hotel users error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * DELETE /api/admin/hotels/:id
  * Delete a hotel (admin only)
  * Requires authentication and admin role
+ * Supports override parameter to delete hotel with all its users
  */
 app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
     const { id } = req.params;
+    const override = req.query.override === 'true';
 
     // Check if user is admin
     if (user.role !== 'admin') {
@@ -1719,8 +1762,43 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
       SELECT COUNT(*) as userCount FROM users WHERE hotel_code = ?
     `, [hotelCode]);
 
-    if (hotelUsers[0].userCount > 0) {
-      return res.status(400).json({ error: 'Cannot delete hotel with existing users. Please reassign or delete users first.' });
+    // If hotel has users and override is not specified, return error
+    if (!override && hotelUsers[0].userCount > 0) {
+      return res.status(400).json({ 
+        error: 'Cannot delete hotel with existing users. Please reassign or delete users first.',
+        hasUsers: true,
+        userCount: hotelUsers[0].userCount
+      });
+    }
+
+    // If override is true, delete all users in this hotel first
+    if (override && hotelUsers[0].userCount > 0) {
+      // Get all user IDs in this hotel
+      const users = await db.query(`
+        SELECT id FROM users WHERE hotel_code = ?
+      `, [hotelCode]);
+
+      // Delete each user's related data
+      for (const userRow of users) {
+        const userId = userRow.id;
+        
+        // Set orders' user references to NULL
+        await db.query(`UPDATE engineering_orders SET sent_by = NULL WHERE sent_by = ?`, [userId]);
+        await db.query(`UPDATE housekeeping_orders SET sent_by = NULL WHERE sent_by = ?`, [userId]);
+        await db.query(`UPDATE laundry_orders SET sent_by = NULL WHERE sent_by = ?`, [userId]);
+        await db.query(`UPDATE roomservice_orders SET sent_by = NULL WHERE sent_by = ?`, [userId]);
+
+        await db.query(`UPDATE engineering_orders SET assigned_to = NULL WHERE assigned_to = ?`, [userId]);
+        await db.query(`UPDATE housekeeping_orders SET assigned_to = NULL WHERE assigned_to = ?`, [userId]);
+        await db.query(`UPDATE laundry_orders SET assigned_to = NULL WHERE assigned_to = ?`, [userId]);
+        await db.query(`UPDATE roomservice_orders SET assigned_to = NULL WHERE assigned_to = ?`, [userId]);
+
+        // Delete FCM tokens
+        await db.query(`DELETE FROM fcm_tokens WHERE user_id = ?`, [userId]);
+      }
+
+      // Delete all users in this hotel
+      await db.query(`DELETE FROM users WHERE hotel_code = ?`, [hotelCode]);
     }
 
     // Delete hotel
@@ -1827,14 +1905,67 @@ app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
 });
 
 /**
+ * GET /api/admin/users/:id/check-orders
+ * Check if a user has associated orders
+ * Used before deletion to warn admin
+ */
+app.get('/api/admin/users/:id/check-orders', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const { id } = req.params;
+
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Check if user has orders across all department tables
+    const ordersCreated = await db.query(`
+      SELECT COUNT(*) as count FROM (
+        SELECT id FROM engineering_orders WHERE sent_by = ?
+        UNION ALL
+        SELECT id FROM housekeeping_orders WHERE sent_by = ?
+        UNION ALL
+        SELECT id FROM laundry_orders WHERE sent_by = ?
+        UNION ALL
+        SELECT id FROM roomservice_orders WHERE sent_by = ?
+      ) as all_orders
+    `, [id, id, id, id]);
+
+    const ordersAssigned = await db.query(`
+      SELECT COUNT(*) as count FROM (
+        SELECT id FROM engineering_orders WHERE assigned_to = ?
+        UNION ALL
+        SELECT id FROM housekeeping_orders WHERE assigned_to = ?
+        UNION ALL
+        SELECT id FROM laundry_orders WHERE assigned_to = ?
+        UNION ALL
+        SELECT id FROM roomservice_orders WHERE assigned_to = ?
+      ) as all_orders
+    `, [id, id, id, id]);
+
+    res.json({
+      hasOrders: (ordersCreated[0].count > 0 || ordersAssigned[0].count > 0),
+      ordersCreated: ordersCreated[0].count,
+      ordersAssigned: ordersAssigned[0].count
+    });
+  } catch (error) {
+    console.error('Check orders error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
  * DELETE /api/admin/users/:id
  * Delete a user (admin only)
  * Requires authentication and admin role
+ * Supports override parameter to delete users with orders
  */
 app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
     const { id } = req.params;
+    const override = req.query.override === 'true';
 
     // Check if user is admin
     if (user.role !== 'admin') {
@@ -1856,27 +1987,54 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
 
-    // Check if user has related data that would prevent deletion
+    // Check if user has related data across all department tables
     const ordersCreated = await db.query(`
       SELECT COUNT(*) as count FROM (
         SELECT id FROM engineering_orders WHERE sent_by = ?
         UNION ALL
         SELECT id FROM housekeeping_orders WHERE sent_by = ?
+        UNION ALL
+        SELECT id FROM laundry_orders WHERE sent_by = ?
+        UNION ALL
+        SELECT id FROM roomservice_orders WHERE sent_by = ?
       ) as all_orders
-    `, [id, id]);
+    `, [id, id, id, id]);
 
     const ordersAssigned = await db.query(`
       SELECT COUNT(*) as count FROM (
         SELECT id FROM engineering_orders WHERE assigned_to = ?
         UNION ALL
         SELECT id FROM housekeeping_orders WHERE assigned_to = ?
+        UNION ALL
+        SELECT id FROM laundry_orders WHERE assigned_to = ?
+        UNION ALL
+        SELECT id FROM roomservice_orders WHERE assigned_to = ?
       ) as all_orders
-    `, [id, id]);
+    `, [id, id, id, id]);
 
-    if (ordersCreated[0].count > 0 || ordersAssigned[0].count > 0) {
+    // If user has orders and override is not specified, return error
+    if (!override && (ordersCreated[0].count > 0 || ordersAssigned[0].count > 0)) {
       return res.status(400).json({ 
-        error: `Cannot delete user. This user has ${ordersCreated[0].count} order(s) created and ${ordersAssigned[0].count} order(s) assigned. Please reassign or delete these orders first.` 
+        error: `Cannot delete user. This user has ${ordersCreated[0].count} order(s) created and ${ordersAssigned[0].count} order(s) assigned. Please reassign or delete these orders first.`,
+        hasOrders: true,
+        ordersCreated: ordersCreated[0].count,
+        ordersAssigned: ordersAssigned[0].count
       });
+    }
+
+    // If override is true, set orders' user references to NULL instead of deleting
+    if (override) {
+      // Set sent_by to NULL for orders created by this user
+      await db.query(`UPDATE engineering_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
+      await db.query(`UPDATE housekeeping_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
+      await db.query(`UPDATE laundry_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
+      await db.query(`UPDATE roomservice_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
+
+      // Set assigned_to to NULL for orders assigned to this user
+      await db.query(`UPDATE engineering_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
+      await db.query(`UPDATE housekeeping_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
+      await db.query(`UPDATE laundry_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
+      await db.query(`UPDATE roomservice_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
     }
 
     // Delete related FCM tokens first (no constraint issue)
@@ -2013,7 +2171,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
       // Level 1 notifications (3 minutes): for all employees in the hotel
       const level1Query = `
         SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
-               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
                '${deptName}' as department
         FROM ${dept} o
         LEFT JOIN users creator ON o.sent_by = creator.id
@@ -2040,7 +2198,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
       // Level 2 notifications (5 minutes): for all employees
       const level2Query = `
         SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
-               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
                '${deptName}' as department
         FROM ${dept} o
         LEFT JOIN users creator ON o.sent_by = creator.id
@@ -2067,7 +2225,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
       // Level 3 notifications (8 minutes): for supervisors and managers
       const level3Query = `
         SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
-               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
                '${deptName}' as department
         FROM ${dept} o
         LEFT JOIN users creator ON o.sent_by = creator.id
@@ -2094,7 +2252,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
       // Level 4 notifications (10 minutes): URGENT for supervisors and managers
       const level4Query = `
         SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
-               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
                '${deptName}' as department
         FROM ${dept} o
         LEFT JOIN users creator ON o.sent_by = creator.id
@@ -2295,7 +2453,7 @@ app.get('/api/notifications/new-orders', authenticateToken, async (req, res) => 
       // Find newly created orders in this hotel
       const newOrdersQuery = `
         SELECT o.id, o.order_name, o.order_notes, o.sent_by, o.created_at,
-               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
+               COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
                '${deptName}' as department
         FROM ${dept} o
         LEFT JOIN users creator ON o.sent_by = creator.id
