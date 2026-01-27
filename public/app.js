@@ -163,6 +163,12 @@ function setupEventListeners() {
     // Tab buttons
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
+            // For employees, prevent switching to different departments
+            if (currentUser.role === 'employee' && btn.dataset.department !== currentUser.department) {
+                showToast('You can only view your assigned department', 'error');
+                return;
+            }
+            
             currentDepartment = btn.dataset.department;
             updateActiveTab();
             loadOrders();
@@ -625,6 +631,27 @@ function showDashboard() {
     if (currentUserSpan) {
         currentUserSpan.textContent = `Welcome, ${currentUser.name || currentUser.username}`;
         console.log('User span updated');
+    }
+    
+    // If user is an employee with a department, set currentDepartment to their assigned department
+    if (currentUser.role === 'employee' && currentUser.department) {
+        currentDepartment = currentUser.department;
+        console.log(`Employee assigned to department: ${currentDepartment}`);
+        
+        // Disable all other department tabs for employees
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            if (btn.dataset.department !== currentUser.department) {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'not-allowed';
+                btn.title = 'You can only access your assigned department';
+            } else {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+                btn.title = '';
+            }
+        });
     }
     
     // Load orders
@@ -1784,7 +1811,7 @@ function validateDepartment(department) {
         return { isValid: false, error: 'Department is required' };
     }
     
-    const validDepartments = ['Engineering', 'Housekeeping'];
+    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
     if (!validDepartments.includes(department)) {
         return { isValid: false, error: 'Invalid department' };
     }
@@ -2080,6 +2107,8 @@ function updateUILanguage(language) {
             clear: 'Clear',
             engineering: 'Engineering',
             housekeeping: 'Housekeeping',
+            laundry: 'Laundry',
+            roomservice: 'Room Service',
             roomNumber: 'Room Number *',
             department: 'Department *',
             notes: 'Notes'
@@ -2092,6 +2121,8 @@ function updateUILanguage(language) {
             clear: 'مسح',
             engineering: 'هندسة',
             housekeeping: 'خدمات الغرف',
+            laundry: 'غسيل',
+            roomservice: 'خدمة الغرف',
             roomNumber: 'رقم الغرفة *',
             department: 'القسم *',
             notes: 'ملاحظات'
@@ -2119,9 +2150,13 @@ function updateUILanguage(language) {
     // Update tab buttons
     const engineeringTab = document.querySelector('.tab-btn[data-department="Engineering"]');
     const housekeepingTab = document.querySelector('.tab-btn[data-department="Housekeeping"]');
+    const laundryTab = document.querySelector('.tab-btn[data-department="Laundry"]');
+    const roomserviceTab = document.querySelector('.tab-btn[data-department="Room Service"]');
     
     if (engineeringTab) engineeringTab.textContent = `🔧 ${texts.engineering}`;
     if (housekeepingTab) housekeepingTab.textContent = `🧹 ${texts.housekeeping}`;
+    if (laundryTab) laundryTab.textContent = `👔 ${texts.laundry}`;
+    if (roomserviceTab) roomserviceTab.textContent = `🍽️ ${texts.roomservice}`;
 }
 
 // Initialize language settings

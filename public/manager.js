@@ -240,6 +240,16 @@ function renderDashboard() {
                             <option value="admin">Admin</option>
                         </select>
                     </div>
+                    <div class="form-group" id="departmentFieldContainer" style="display:none;">
+                        <label for="editDepartment">Department (for employees only)</label>
+                        <select id="editDepartment">
+                            <option value="">Select Department</option>
+                            <option value="Engineering">Engineering</option>
+                            <option value="Housekeeping">Housekeeping</option>
+                            <option value="Laundry">Laundry</option>
+                            <option value="Room Service">Room Service</option>
+                        </select>
+                    </div>
                     <div style="display:flex; gap:12px; justify-content:flex-end;">
                         <button type="button" class="btn-secondary" id="cancelEditBtn">Cancel</button>
                         <button type="submit" class="btn-primary">Save Changes</button>
@@ -389,6 +399,28 @@ function openEditModal(userId) {
     document.getElementById('editUsername').value = user.username || '';
     document.getElementById('editPassword').value = '';
     document.getElementById('editRole').value = user.role || 'employee';
+    document.getElementById('editDepartment').value = user.department || '';
+
+    // Show/hide department field based on role
+    const departmentField = document.getElementById('departmentFieldContainer');
+    const roleSelect = document.getElementById('editRole');
+    
+    if (roleSelect) {
+        roleSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'employee' && departmentField) {
+                departmentField.style.display = 'block';
+            } else if (departmentField) {
+                departmentField.style.display = 'none';
+            }
+        });
+        
+        // Initial display
+        if (roleSelect.value === 'employee' && departmentField) {
+            departmentField.style.display = 'block';
+        } else if (departmentField) {
+            departmentField.style.display = 'none';
+        }
+    }
 
     modal.style.display = 'flex';
 }
@@ -409,13 +441,14 @@ async function handleEditSubmit(event) {
     const username = document.getElementById('editUsername').value.trim();
     const password = document.getElementById('editPassword').value;
     const role = document.getElementById('editRole').value;
+    const department = role === 'employee' ? document.getElementById('editDepartment').value : null;
 
     if (!firstName || !lastName || !username) {
         alert('First name, last name, and username are required.');
         return;
     }
 
-    const payload = { firstName, lastName, username, role };
+    const payload = { firstName, lastName, username, role, department };
     if (password && password.trim()) {
         payload.password = password.trim();
     }

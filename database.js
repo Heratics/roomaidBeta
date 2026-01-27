@@ -43,6 +43,7 @@ class Database {
           passwordHash VARCHAR(255) NOT NULL,
           hotel_code VARCHAR(50) NOT NULL,
           role VARCHAR(20) DEFAULT 'employee',
+          department VARCHAR(50) DEFAULT NULL,
           first_name VARCHAR(100),
           last_name VARCHAR(100),
           createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -85,12 +86,46 @@ class Database {
         )
       `);
 
+      // Create Laundry Orders table
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS laundry_orders (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          order_name VARCHAR(255) NOT NULL,
+          order_notes TEXT,
+          sent_by INT NOT NULL,
+          assigned_to INT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          completed_at DATETIME NULL,
+          deleted_at DATETIME NULL,
+          hotel_code VARCHAR(50) NOT NULL,
+          FOREIGN KEY (sent_by) REFERENCES users(id),
+          FOREIGN KEY (assigned_to) REFERENCES users(id)
+        )
+      `);
+
+      // Create Room Service Orders table
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS roomservice_orders (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          order_name VARCHAR(255) NOT NULL,
+          order_notes TEXT,
+          sent_by INT NOT NULL,
+          assigned_to INT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          completed_at DATETIME NULL,
+          deleted_at DATETIME NULL,
+          hotel_code VARCHAR(50) NOT NULL,
+          FOREIGN KEY (sent_by) REFERENCES users(id),
+          FOREIGN KEY (assigned_to) REFERENCES users(id)
+        )
+      `);
+
       // Create Order Logs table to track changes
       await this.pool.query(`
         CREATE TABLE IF NOT EXISTS order_logs (
           id INT AUTO_INCREMENT PRIMARY KEY,
           order_id INT NOT NULL,
-          order_type ENUM('engineering', 'housekeeping') NOT NULL,
+          order_type ENUM('engineering', 'housekeeping', 'laundry', 'roomservice') NOT NULL,
           action_type ENUM('deleted', 'edited', 'restored', 'hold') NOT NULL,
           changed_by INT NOT NULL,
           changed_by_name VARCHAR(200),
@@ -129,6 +164,32 @@ class Database {
         console.log('Hold columns might already exist in housekeeping_orders');
       }
 
+      // Add hold columns to laundry_orders if they don't exist
+      try {
+        await this.pool.query(`
+          ALTER TABLE laundry_orders
+          ADD COLUMN on_hold BOOLEAN DEFAULT FALSE,
+          ADD COLUMN hold_info VARCHAR(255) NULL,
+          ADD COLUMN hold_until DATETIME NULL
+        `);
+      } catch (error) {
+        // Columns might already exist, ignore error
+        console.log('Hold columns might already exist in laundry_orders');
+      }
+
+      // Add hold columns to roomservice_orders if they don't exist
+      try {
+        await this.pool.query(`
+          ALTER TABLE roomservice_orders
+          ADD COLUMN on_hold BOOLEAN DEFAULT FALSE,
+          ADD COLUMN hold_info VARCHAR(255) NULL,
+          ADD COLUMN hold_until DATETIME NULL
+        `);
+      } catch (error) {
+        // Columns might already exist, ignore error
+        console.log('Hold columns might already exist in roomservice_orders');
+      }
+
       // Update order_logs action_type enum to include 'hold' if it doesn't exist
       try {
         await this.pool.query(`
@@ -159,12 +220,32 @@ class Database {
         console.log('hold_reason column might already exist in housekeeping_orders');
       }
 
+      // Add hold_reason column to laundry_orders if it doesn't exist
+      try {
+        await this.pool.query(`
+          ALTER TABLE laundry_orders
+          ADD COLUMN hold_reason TEXT NULL
+        `);
+      } catch (error) {
+        console.log('hold_reason column might already exist in laundry_orders');
+      }
+
+      // Add hold_reason column to roomservice_orders if it doesn't exist
+      try {
+        await this.pool.query(`
+          ALTER TABLE roomservice_orders
+          ADD COLUMN hold_reason TEXT NULL
+        `);
+      } catch (error) {
+        console.log('hold_reason column might already exist in roomservice_orders');
+      }
+
       // Create Notifications table to track pending order notifications
       await this.pool.query(`
         CREATE TABLE IF NOT EXISTS order_notifications (
           id INT AUTO_INCREMENT PRIMARY KEY,
           order_id INT NOT NULL,
-          order_type ENUM('engineering', 'housekeeping') NOT NULL,
+          order_type ENUM('engineering', 'housekeeping', 'laundry', 'roomservice') NOT NULL,
           hotel_code VARCHAR(50) NOT NULL,
           notification_level INT DEFAULT 1,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -191,6 +272,16 @@ class Database {
           UNIQUE KEY uniq_user_token (user_id, (fcm_token(255)))
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
+
+      // Add department column to users table if it doesn't exist
+      try {
+        await this.pool.query(`
+          ALTER TABLE users
+          ADD COLUMN department VARCHAR(50) DEFAULT NULL
+        `);
+      } catch (error) {
+        console.log('Department column might already exist in users table');
+      }
 
       console.log('✅ Database tables created/verified');
     } catch (error) {

@@ -17,17 +17,20 @@ async function notifyNewOrder(orderId, department, hotelCode, orderDetails) {
         console.log(`Sending new order notification for order ${orderId} to ${department} department`);
         
         // Get all users in the department for this hotel
+        // For employees, only those assigned to this department
+        // For supervisors/managers/admins, all of them get notified
         const users = await db.query(`
             SELECT id FROM users 
             WHERE hotel_code = ?
-        `, [hotelCode]);
+            AND (role != 'employee' OR department = ?)
+        `, [hotelCode, department]);
         
         if (!users || users.length === 0) {
-            console.log(`No users found for hotel ${hotelCode}`);
+            console.log(`No users found for hotel ${hotelCode} in department ${department}`);
             return;
         }
         
-        // Send FCM notification to all users in the hotel
+        // Send FCM notification to relevant users
         const userIds = users.map(u => u.id);
         if (userIds.length > 0) {
             await sendFCMNotification(userIds, {
@@ -75,11 +78,19 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
                 console.log(`Sending ${minutes}-minute reminder for order ${orderId}`);
                 
                 try {
-                    // Get all users in the department
-                    const users = await db.query(`
+                    // Get users for notifications - filter by department for employees
+                    let query = `
                         SELECT id FROM users 
                         WHERE hotel_code = ?
-                    `, [hotelCode]);
+                    `;
+                    const params = [hotelCode];
+
+                    // For employees, only notify those assigned to this department
+                    // For supervisors/managers/admins, notify all
+                    query += ` AND (role != 'employee' OR department = ?)`;
+                    params.push(department);
+
+                    const users = await db.query(query, params);
 
                     const userIds = users.map(u => u.id);
                     if (userIds.length > 0) {
@@ -115,10 +126,10 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
             console.log(`Order ${orderId} still pending after 15 minutes, notifying supervisors`);
             
             try {
-                // Get all admin users for the hotel
+                // Get all supervisors/managers/admins for the hotel
                 const supervisors = await db.query(`
                     SELECT id FROM users 
-                    WHERE hotel_code = ? AND role = 'admin'
+                    WHERE hotel_code = ? AND role IN ('supervisor', 'manager', 'admin')
                 `, [hotelCode]);
 
                 const supervisorIds = supervisors.map(s => s.id);
@@ -187,7 +198,11 @@ async function getOrderStatus(orderId) {
             SELECT * FROM engineering_orders WHERE id = ? AND deleted_at IS NULL
             UNION ALL
             SELECT * FROM housekeeping_orders WHERE id = ? AND deleted_at IS NULL
-        `, [orderId, orderId]);
+            UNION ALL
+            SELECT * FROM laundry_orders WHERE id = ? AND deleted_at IS NULL
+            UNION ALL
+            SELECT * FROM roomservice_orders WHERE id = ? AND deleted_at IS NULL
+        `, [orderId, orderId, orderId, orderId]);
         
         return results.length > 0 ? results[0] : null;
     } catch (error) {

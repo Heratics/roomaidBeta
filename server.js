@@ -49,6 +49,51 @@ app.use(express.static('public'));
 // Initialize FCM routes
 fcmRoutes.createFCMRoutes(app);
 
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Map department name to database table name
+ * @param {string} department - Department name
+ * @returns {string} Database table name
+ */
+function getDepartmentTableName(department) {
+  const deptLower = department.toLowerCase();
+  switch (deptLower) {
+    case 'engineering':
+      return 'engineering_orders';
+    case 'housekeeping':
+      return 'housekeeping_orders';
+    case 'laundry':
+      return 'laundry_orders';
+    case 'room service':
+      return 'roomservice_orders';
+    default:
+      return 'engineering_orders'; // Default fallback
+  }
+}
+
+/**
+ * Map database table name to order type for logs
+ * @param {string} tableName - Database table name
+ * @returns {string} Order type for logs
+ */
+function getOrderTypeFromTableName(tableName) {
+  switch (tableName) {
+    case 'engineering_orders':
+      return 'engineering';
+    case 'housekeeping_orders':
+      return 'housekeeping';
+    case 'laundry_orders':
+      return 'laundry';
+    case 'roomservice_orders':
+      return 'roomservice';
+    default:
+      return 'engineering';
+  }
+}
+
 const authenticateToken = (req, res, next) => {
   // Extract token from Authorization header or session
   const token = req.headers.authorization?.split(' ')[1] || req.session.token;
@@ -135,7 +180,8 @@ app.post('/api/auth/login', async (req, res) => {
         hotelCode: user.hotelCode,
         hotel_code: user.hotel_code,
         role: user.role,
-        hotelName: user.hotelName
+        hotelName: user.hotelName,
+        department: user.department || null
       }
     });
   } catch (error) {
@@ -171,10 +217,8 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Department is required' });
     }
 
-
-
     // Build SQL query to fetch orders from the appropriate department table
-    const tableName = department.toLowerCase() === 'engineering' ? 'engineering_orders' : 'housekeeping_orders';
+    const tableName = getDepartmentTableName(department);
     let query = `
       SELECT o.*, 
              COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username) as creatorName,
@@ -190,6 +234,14 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
     // Filter by user's hotel code to ensure they only see orders from their hotel
     // Also exclude soft-deleted orders
     let params = [user.hotel_code || user.hotelCode];
+
+    // If user is an employee, only show orders from their assigned department
+    if (user.role === 'employee' && user.department) {
+      // Check if the requested department matches the user's assigned department
+      if (department !== user.department) {
+        return res.status(403).json({ error: 'You can only view orders from your assigned department' });
+      }
+    }
 
     // Add date filter if provided
     if (date) {
@@ -244,7 +296,7 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
     }
 
     // Insert new order into the appropriate department table (let database auto-generate ID)
-    const tableName = departmentValidation.value.toLowerCase() === 'engineering' ? 'engineering_orders' : 'housekeeping_orders';
+    const tableName = getDepartmentTableName(departmentValidation.value);
 
     const hotelCode = user.hotel_code || user.hotelCode;
     console.log('Using hotel code:', hotelCode);
@@ -335,18 +387,16 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
     // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
     let tableName = null;
     let orderFound = false;
+    const hotelCode = user.hotel_code || user.hotelCode;
+    const tableNames = ['engineering_orders', 'housekeeping_orders', 'laundry_orders', 'roomservice_orders'];
 
-    // Check engineering_orders first
-    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
-    if (checkResult.length > 0) {
-      tableName = 'engineering_orders';
-      orderFound = true;
-    } else {
-      // Check housekeeping_orders
-      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
+    // Check all department tables
+    for (const tbl of tableNames) {
+      const checkResult = await db.query(`SELECT id FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, hotelCode]);
       if (checkResult.length > 0) {
-        tableName = 'housekeeping_orders';
+        tableName = tbl;
         orderFound = true;
+        break;
       }
     }
 
@@ -411,18 +461,16 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
     // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
     let tableName = null;
     let orderFound = false;
+    const hotelCode = user.hotel_code || user.hotelCode;
+    const tableNames = ['engineering_orders', 'housekeeping_orders', 'laundry_orders', 'roomservice_orders'];
 
-    // Check engineering_orders first
-    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
-    if (checkResult.length > 0) {
-      tableName = 'engineering_orders';
-      orderFound = true;
-    } else {
-      // Check housekeeping_orders
-      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
+    // Check all department tables
+    for (const tbl of tableNames) {
+      const checkResult = await db.query(`SELECT id FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, hotelCode]);
       if (checkResult.length > 0) {
-        tableName = 'housekeeping_orders';
+        tableName = tbl;
         orderFound = true;
+        break;
       }
     }
 
@@ -455,7 +503,7 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
       VALUES (?, ?, 'deleted', ?, ?, ?, ?, ?)
     `, [
       id,
-      tableName === 'engineering_orders' ? 'engineering' : 'housekeeping',
+      getOrderTypeFromTableName(tableName),
       user.id,
       userFullName,
       user.hotel_code || user.hotelCode,
@@ -777,7 +825,7 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
     }
 
     // Determine table name based on department
-    const tableName = department.toLowerCase() === 'engineering' ? 'engineering_orders' : 'housekeeping_orders';
+    const tableName = getDepartmentTableName(department);
 
     // Check if order exists and belongs to user's hotel
     const orderCheck = await db.query(`SELECT * FROM ${tableName} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
@@ -816,7 +864,7 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
       VALUES (?, ?, 'edited', ?, ?, ?, ?, ?, ?)
     `, [
       id,
-      department.toLowerCase() === 'engineering' ? 'engineering' : 'housekeeping',
+      getOrderTypeFromTableName(tableName),
       user.id,
       userFullName,
       user.hotel_code || user.hotelCode,
@@ -1380,7 +1428,23 @@ app.get('/api/manager/reports/daily', authenticateToken, async (req, res) => {
       WHERE o.hotel_code = ? AND o.deleted_at IS NULL AND DATE(o.created_at) = ?
     `;
 
-    const orders = await db.query(`(${engineeringQuery}) UNION ALL (${housekeepingQuery}) ORDER BY created_at DESC`, [hotelCode, date, hotelCode, date]);
+    const laundryQuery = `
+      SELECT 'laundry' as department, ${baseFields}
+      FROM laundry_orders o
+      LEFT JOIN users creator ON o.sent_by = creator.id
+      LEFT JOIN users assignee ON o.assigned_to = assignee.id
+      WHERE o.hotel_code = ? AND o.deleted_at IS NULL AND DATE(o.created_at) = ?
+    `;
+
+    const roomserviceQuery = `
+      SELECT 'roomservice' as department, ${baseFields}
+      FROM roomservice_orders o
+      LEFT JOIN users creator ON o.sent_by = creator.id
+      LEFT JOIN users assignee ON o.assigned_to = assignee.id
+      WHERE o.hotel_code = ? AND o.deleted_at IS NULL AND DATE(o.created_at) = ?
+    `;
+
+    const orders = await db.query(`(${engineeringQuery}) UNION ALL (${housekeepingQuery}) UNION ALL (${laundryQuery}) UNION ALL (${roomserviceQuery}) ORDER BY created_at DESC`, [hotelCode, date, hotelCode, date, hotelCode, date, hotelCode, date]);
 
     res.json({ orders, hotelCode, date });
   } catch (error) {
@@ -1403,7 +1467,7 @@ app.put('/api/manager/users/:id', authenticateToken, async (req, res) => {
     }
 
     const { id } = req.params;
-    const { firstName, lastName, username, password, role } = req.body;
+    const { firstName, lastName, username, password, role, department } = req.body;
 
     if (!firstName || !lastName || !username) {
       return res.status(400).json({ error: 'First name, last name, and username are required' });
@@ -1411,6 +1475,12 @@ app.put('/api/manager/users/:id', authenticateToken, async (req, res) => {
 
     if (role && !['employee', 'supervisor', 'manager', 'admin'].includes(role)) {
       return res.status(400).json({ error: 'Invalid role' });
+    }
+
+    // Validate department if provided and role is employee
+    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+    if (department && role === 'employee' && !validDepartments.includes(department)) {
+      return res.status(400).json({ error: 'Invalid department' });
     }
 
     const hotelCode = requester.hotel_code || requester.hotelCode;
@@ -1449,13 +1519,21 @@ app.put('/api/manager/users/:id', authenticateToken, async (req, res) => {
       params.push(role);
     }
 
+    // Set department to NULL if role is not employee
+    if (role && role !== 'employee') {
+      updateQuery += ', department = NULL';
+    } else if (department) {
+      updateQuery += ', department = ?';
+      params.push(department);
+    }
+
     updateQuery += ' WHERE id = ?';
     params.push(id);
 
     await db.query(updateQuery, params);
 
     const updatedUser = await db.query(`
-      SELECT u.id, u.username, u.first_name, u.last_name, u.hotel_code, u.role, h.name as hotelName
+      SELECT u.id, u.username, u.first_name, u.last_name, u.hotel_code, u.role, u.department, h.name as hotelName
       FROM users u
       LEFT JOIN hotels h ON u.hotel_code = h.code
       WHERE u.id = ?
@@ -1532,7 +1610,7 @@ app.post('/api/admin/hotels', authenticateToken, async (req, res) => {
 app.post('/api/admin/users', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
-    const { firstName, lastName, username, password, hotelCode, role } = req.body;
+    const { firstName, lastName, username, password, hotelCode, role, department } = req.body;
 
     // Check if user is admin
     if (user.role !== 'admin') {
@@ -1554,6 +1632,12 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: hotelCodeValidation.error });
     }
 
+    // Validate department if provided and role is employee
+    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+    if (department && role === 'employee' && !validDepartments.includes(department)) {
+      return res.status(400).json({ error: 'Invalid department' });
+    }
+
     // Check if username already exists
     const existingUsers = await db.query(`
       SELECT id FROM users WHERE username = ?
@@ -1564,16 +1648,21 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
     }
 
     // Create user with plain text password for now (matching existing system)
+    // Only set department if role is employee
+    const userRole = role || 'employee';
+    const userDepartment = (userRole === 'employee' && department) ? department : null;
+
     const result = await db.query(`
-      INSERT INTO users (username, passwordHash, hotel_code, role, first_name, last_name, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (username, passwordHash, hotel_code, role, first_name, last_name, department, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       usernameValidation.value,
       passwordValidation.value, // Store as plain text for now
       hotelCodeValidation.value,
-      role || 'employee',
+      userRole,
       firstName,
       lastName,
+      userDepartment,
       new Date()
     ]);
 
@@ -1589,7 +1678,8 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
         last_name: lastName,
         name: `${firstName} ${lastName}`.trim(), // Keep for backward compatibility
         hotel_code: hotelCodeValidation.value,
-        role: role || 'employee'
+        role: userRole,
+        department: userDepartment
       }
     });
   } catch (error) {
@@ -1900,12 +1990,19 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
     const user = req.user;
     const hotelCode = user.hotel_code || user.hotelCode;
 
-    // Check for unclaimed orders in both departments
+    // Check for unclaimed orders in all departments
     const notifications = [];
     const pushMessages = [];
 
-    for (const dept of ['engineering_orders', 'housekeeping_orders']) {
-      const deptName = dept === 'engineering_orders' ? 'Engineering' : 'Housekeeping';
+    const departmentMap = {
+      'engineering_orders': 'Engineering',
+      'housekeeping_orders': 'Housekeeping',
+      'laundry_orders': 'Laundry',
+      'roomservice_orders': 'Room Service'
+    };
+
+    for (const dept of ['engineering_orders', 'housekeeping_orders', 'laundry_orders', 'roomservice_orders']) {
+      const deptName = departmentMap[dept];
 
       // Find orders created at different time intervals for progressive escalation
       const threeMinAgo = new Date(Date.now() - 3 * 60 * 1000);
@@ -2077,8 +2174,12 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
       // Determine which notifications to send based on user role
       let userNotifications = [];
 
-      // All roles get 3-minute and 5-minute alerts
-      if (['employee', 'supervisor', 'manager', 'admin'].includes(user.role)) {
+      // For employees, only show their assigned department
+      if (user.role === 'employee') {
+        if (user.department !== deptName) {
+          continue; // Skip this department for employees not assigned to it
+        }
+
         userNotifications = level1Orders.map(order => ({
           ...order,
           department: deptName,
@@ -2094,10 +2195,25 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
             minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
           }))
         );
-      }
+      } else if (['supervisor', 'manager', 'admin'].includes(user.role)) {
+        // All roles except employees get 3-minute and 5-minute alerts
+        userNotifications = level1Orders.map(order => ({
+          ...order,
+          department: deptName,
+          level: 1,
+          minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
+        }));
 
-      // Managers, supervisors, and admins get the 8-minute and 10-minute alerts
-      if (['supervisor', 'manager', 'admin'].includes(user.role)) {
+        userNotifications = userNotifications.concat(
+          level2Orders.map(order => ({
+            ...order,
+            department: deptName,
+            level: 2,
+            minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
+          }))
+        );
+
+        // Managers, supervisors, and admins also get the 8-minute and 10-minute alerts
         userNotifications = userNotifications.concat(
           level3Orders.map(order => ({
             ...order,
@@ -2161,8 +2277,20 @@ app.get('/api/notifications/new-orders', authenticateToken, async (req, res) => 
     const notifications = [];
     const pushMessages = [];
 
-    for (const dept of ['engineering_orders', 'housekeeping_orders']) {
-      const deptName = dept === 'engineering_orders' ? 'Engineering' : 'Housekeeping';
+    const departmentMap = {
+      'engineering_orders': 'Engineering',
+      'housekeeping_orders': 'Housekeeping',
+      'laundry_orders': 'Laundry',
+      'roomservice_orders': 'Room Service'
+    };
+
+    for (const dept of ['engineering_orders', 'housekeeping_orders', 'laundry_orders', 'roomservice_orders']) {
+      const deptName = departmentMap[dept];
+
+      // For employees, skip departments they're not assigned to
+      if (user.role === 'employee' && user.department !== deptName) {
+        continue;
+      }
 
       // Find newly created orders in this hotel
       const newOrdersQuery = `

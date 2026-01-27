@@ -275,10 +275,12 @@
             <main class="dashboard-main">
                 <!-- Dashboard controls: tabs, filters, and add button -->
                 <div class="dashboard-controls">
-                    <!-- Department tab buttons for switching between Engineering and Housekeeping -->
+                    <!-- Department tab buttons for switching between Engineering, Housekeeping, Laundry, and Room Service -->
                     <div class="tab-buttons">
                         <button class="tab-btn active" data-department="Engineering">🔧 Engineering</button>
                         <button class="tab-btn" data-department="Housekeeping">🧹 Housekeeping</button>
+                        <button class="tab-btn" data-department="Laundry">👔 Laundry</button>
+                        <button class="tab-btn" data-department="Room Service">🍽️ Room Service</button>
                     </div>
                     
                     <!-- Date filter controls -->
@@ -324,6 +326,8 @@
                         <select id="orderDepartment" name="department" required>
                             <option value="Engineering">Engineering</option>
                             <option value="Housekeeping">Housekeeping</option>
+                            <option value="Laundry">Laundry</option>
+                            <option value="Room Service">Room Service</option>
                         </select>
                     </div>
                     
@@ -578,6 +582,8 @@
                     <select id="editOrderDepartment" name="department" required>
                         <option value="Engineering">Engineering</option>
                         <option value="Housekeeping">Housekeeping</option>
+                        <option value="Laundry">Laundry</option>
+                        <option value="Room Service">Room Service</option>
                     </select>
                 </div>
                 

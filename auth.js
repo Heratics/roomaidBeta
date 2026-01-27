@@ -170,6 +170,7 @@ class Auth {
         hotelCode: user.hotel_code,
         hotel_code: user.hotel_code,
         role: user.role,
+        department: user.department || null,
         hotelName: user.hotelName || `Hotel ${user.hotel_code}` // Use actual hotel name if available
       };
     } catch (error) {
