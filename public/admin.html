@@ -510,6 +510,28 @@
                         <label for="hotelCode">Hotel Code:</label>
                         <input type="text" id="hotelCode" name="hotelCode" required placeholder="e.g., HOTEL001">
                     </div>
+
+                    <div class="form-group">
+                        <label>Departments:</label>
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" name="department" value="Engineering" checked>
+                                <span>Engineering</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" name="department" value="Housekeeping" checked>
+                                <span>Housekeeping</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" name="department" value="Laundry" checked>
+                                <span>Laundry</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" name="department" value="Room Service" checked>
+                                <span>Room Service</span>
+                            </label>
+                        </div>
+                    </div>
                     
                     <button type="submit" class="btn-primary">Add Hotel</button>
                 </form>
@@ -524,6 +546,7 @@
                         <tr>
                             <th style="text-align: left;">Hotel Name</th>
                             <th style="text-align: center;">Hotel Code</th>
+                            <th style="text-align: center;">Departments</th>
                             <th style="text-align: center;">Actions</th>
                         </tr>
                     </thead>
@@ -531,6 +554,52 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <!-- Edit Hotel Modal -->
+    <div id="editHotelModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000;">
+        <div style="background: var(--bg-primary); padding: 30px; border-radius: 12px; width: 90%; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">Edit Hotel</h2>
+                <button onclick="closeEditHotelModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary);">&times;</button>
+            </div>
+            
+            <form id="editHotelForm" style="display: flex; flex-direction: column; gap: 15px;">
+                <input type="hidden" id="editHotelId">
+                
+                <div class="form-group">
+                    <label for="editHotelName">Hotel Name:</label>
+                    <input type="text" id="editHotelName" name="editHotelName" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Departments:</label>
+                    <div id="editHotelDepartments" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" name="editDepartment" value="Engineering">
+                            <span>Engineering</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" name="editDepartment" value="Housekeeping">
+                            <span>Housekeeping</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" name="editDepartment" value="Laundry">
+                            <span>Laundry</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" name="editDepartment" value="Room Service">
+                            <span>Room Service</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" onclick="closeEditHotelModal()" style="padding: 10px 20px; border: 1px solid var(--border-primary); background: var(--bg-secondary); color: var(--text-primary); border-radius: 6px; cursor: pointer;">Cancel</button>
+                    <button type="submit" class="btn-primary" style="padding: 10px 20px;">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
     

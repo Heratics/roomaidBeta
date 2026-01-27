@@ -470,6 +470,40 @@ function setupFormHandlers() {
             }
         });
     }
+
+    // Add hotel change listener to filter department options
+    const hotelCodeSelect = document.getElementById('hotelCode');
+    const departmentSelect = document.getElementById('department');
+    if (hotelCodeSelect && departmentSelect) {
+        hotelCodeSelect.addEventListener('change', async function() {
+            const hotelCode = this.value;
+            if (!hotelCode) {
+                // Reset to all departments if no hotel selected
+                updateDepartmentOptions(departmentSelect, ['Engineering', 'Housekeeping', 'Laundry', 'Room Service']);
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/hotels/${hotelCode}/departments`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    updateDepartmentOptions(departmentSelect, result.departments);
+                } else {
+                    // Fallback to all departments
+                    updateDepartmentOptions(departmentSelect, ['Engineering', 'Housekeeping', 'Laundry', 'Room Service']);
+                }
+            } catch (error) {
+                console.error('Error loading hotel departments:', error);
+                updateDepartmentOptions(departmentSelect, ['Engineering', 'Housekeeping', 'Laundry', 'Room Service']);
+            }
+        });
+    }
     
     // Edit user form
     const editUserForm = document.getElementById('editUserForm');
@@ -481,6 +515,12 @@ function setupFormHandlers() {
     const addHotelForm = document.getElementById('add-hotel-form');
     if (addHotelForm) {
         addHotelForm.addEventListener('submit', handleAddHotel);
+    }
+
+    // Edit hotel form
+    const editHotelForm = document.getElementById('editHotelForm');
+    if (editHotelForm) {
+        editHotelForm.addEventListener('submit', handleEditHotel);
     }
 }
 
@@ -1088,9 +1128,21 @@ async function handleAddHotel(event) {
     }
     
     const formData = new FormData(event.target);
+    
+    // Get selected departments
+    const departments = [];
+    const deptCheckboxes = event.target.querySelectorAll('input[name="department"]:checked');
+    deptCheckboxes.forEach(cb => departments.push(cb.value));
+    
+    if (departments.length === 0) {
+        showAlert('Please select at least one department', 'error');
+        return;
+    }
+    
     const hotelData = {
         name: formData.get('hotelName'),
-        code: formData.get('hotelCode')
+        code: formData.get('hotelCode'),
+        departments: departments
     };
     
     try {
@@ -1108,6 +1160,8 @@ async function handleAddHotel(event) {
         if (response.ok) {
             showAlert('Hotel added successfully!', 'success');
             event.target.reset();
+            // Re-check all checkboxes for next hotel
+            event.target.querySelectorAll('input[name="department"]').forEach(cb => cb.checked = true);
             loadHotels(); // Reload hotels list
         } else {
             showAlert(result.error || 'Failed to add hotel', 'error');
@@ -1181,10 +1235,16 @@ function displayHotels(hotels) {
     if (hotels && hotels.length > 0) {
         hotels.forEach(hotel => {
             const row = document.createElement('tr');
+            const deptList = hotel.departments && hotel.departments.length > 0 
+                ? hotel.departments.join(', ') 
+                : 'All Departments';
+            
             row.innerHTML = `
                 <td style="text-align: left;">${escapeHtml(hotel.name)}</td>
                 <td style="text-align: center;">${escapeHtml(hotel.code)}</td>
+                <td style="text-align: center;">${escapeHtml(deptList)}</td>
                 <td style="text-align: center;">
+                    <button class="btn-primary" onclick="editHotel('${hotel.id}')" style="margin-right: 5px; padding: 8px 16px;">Edit</button>
                     <button class="btn-danger" onclick="deleteHotel('${hotel.id}')">Delete</button>
                 </td>
             `;
@@ -1195,7 +1255,7 @@ function displayHotels(hotels) {
         populateHotelDropdown(hotels);
     } else {
         const row = document.createElement('tr');
-        row.innerHTML = '<td colspan="3" style="text-align: center; color: #666;">No hotels found</td>';
+        row.innerHTML = '<td colspan="4" style="text-align: center; color: #666;">No hotels found</td>';
         if (tbody) tbody.appendChild(row);
         
         // Clear dropdown if no hotels
@@ -1227,6 +1287,89 @@ function populateHotelDropdown(hotels) {
  * Delete hotel
  */
 let hotelToDelete = null;
+
+/**
+ * Edit hotel
+ */
+async function editHotel(hotelId) {
+    try {
+        const response = await fetch('/api/admin/hotels', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+        
+        const result = await response.json();
+        const hotel = result.hotels.find(h => h.id === hotelId);
+        
+        if (!hotel) {
+            showAlert('Hotel not found', 'error');
+            return;
+        }
+        
+        // Populate modal
+        document.getElementById('editHotelId').value = hotel.id;
+        document.getElementById('editHotelName').value = hotel.name;
+        
+        // Set department checkboxes
+        const checkboxes = document.querySelectorAll('input[name="editDepartment"]');
+        checkboxes.forEach(cb => {
+            cb.checked = hotel.departments && hotel.departments.includes(cb.value);
+        });
+        
+        // Show modal
+        document.getElementById('editHotelModal').style.display = 'flex';
+    } catch (error) {
+        console.error('Error loading hotel:', error);
+        showAlert('Error loading hotel details', 'error');
+    }
+}
+
+function closeEditHotelModal() {
+    document.getElementById('editHotelModal').style.display = 'none';
+}
+
+async function handleEditHotel(event) {
+    event.preventDefault();
+    
+    const hotelId = document.getElementById('editHotelId').value;
+    const name = document.getElementById('editHotelName').value;
+    
+    // Get selected departments
+    const departments = [];
+    const deptCheckboxes = document.querySelectorAll('input[name="editDepartment"]:checked');
+    deptCheckboxes.forEach(cb => departments.push(cb.value));
+    
+    if (departments.length === 0) {
+        showAlert('Please select at least one department', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/hotels/${hotelId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name, departments })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert('Hotel updated successfully!', 'success');
+            closeEditHotelModal();
+            loadHotels();
+        } else {
+            showAlert(result.error || 'Failed to update hotel', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating hotel:', error);
+        showAlert('Error updating hotel. Please try again.', 'error');
+    }
+}
 
 async function deleteHotel(hotelId) {
     // First, check if hotel has users
@@ -1421,6 +1564,28 @@ function toggleSettingsMenu() {
 // ============================================================================
 // DARK MODE FUNCTIONALITY
 // ============================================================================
+
+/**
+ * Update department dropdown options
+ */
+function updateDepartmentOptions(selectElement, departments) {
+    if (!selectElement) return;
+
+    const currentValue = selectElement.value;
+    selectElement.innerHTML = '<option value="">Select Department</option>';
+    
+    departments.forEach(dept => {
+        const option = document.createElement('option');
+        option.value = dept;
+        option.textContent = dept;
+        selectElement.appendChild(option);
+    });
+
+    // Restore previous selection if still valid
+    if (departments.includes(currentValue)) {
+        selectElement.value = currentValue;
+    }
+}
 
 /**
  * Initialize dark mode on page load

@@ -35,6 +35,18 @@ class Database {
         )
       `);
 
+      // Create Hotel Departments table
+      await this.pool.query(`
+        CREATE TABLE IF NOT EXISTS hotel_departments (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          hotel_code VARCHAR(50) NOT NULL,
+          department VARCHAR(50) NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE KEY unique_hotel_dept (hotel_code, department),
+          FOREIGN KEY (hotel_code) REFERENCES hotels(code) ON DELETE CASCADE
+        )
+      `);
+
       // Create Users table
       await this.pool.query(`
         CREATE TABLE IF NOT EXISTS users (

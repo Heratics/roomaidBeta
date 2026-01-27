@@ -1143,9 +1143,42 @@ app.get('/api/admin/hotels', authenticateToken, async (req, res) => {
       ORDER BY h.id DESC
     `);
 
+    // Get departments for each hotel
+    for (const hotel of hotels) {
+      const deptRows = await db.query(`
+        SELECT department FROM hotel_departments WHERE hotel_code = ?
+      `, [hotel.code]);
+      hotel.departments = deptRows.map(row => row.department);
+    }
+
     res.json({ hotels });
   } catch (error) {
     console.error('Get hotels error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * GET /api/hotels/:code/departments
+ * Get departments for a specific hotel
+ * Requires authentication
+ */
+app.get('/api/hotels/:code/departments', authenticateToken, async (req, res) => {
+  try {
+    const hotelCode = req.params.code;
+
+    const departments = await db.query(`
+      SELECT department FROM hotel_departments WHERE hotel_code = ?
+    `, [hotelCode]);
+
+    // If no departments configured, return all departments as fallback
+    const deptList = departments.length > 0 
+      ? departments.map(row => row.department)
+      : ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+
+    res.json({ departments: deptList });
+  } catch (error) {
+    console.error('Get hotel departments error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -1498,6 +1531,20 @@ app.put('/api/manager/users/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied for this hotel' });
     }
 
+    // If employee, validate that department is allowed for the hotel
+    if (role === 'employee' && department) {
+      const hotelDepts = await db.query(`
+        SELECT department FROM hotel_departments WHERE hotel_code = ?
+      `, [targetUser[0].hotel_code]);
+      
+      const allowedDepts = hotelDepts.map(row => row.department);
+      if (allowedDepts.length > 0 && !allowedDepts.includes(department)) {
+        return res.status(400).json({ 
+          error: `Department '${department}' is not available for this hotel. Allowed departments: ${allowedDepts.join(', ')}`
+        });
+      }
+    }
+
     // Enforce unique username if changed
     if (username !== targetUser[0].username) {
       const existing = await db.query(`SELECT id FROM users WHERE username = ?`, [username]);
@@ -1554,7 +1601,7 @@ app.put('/api/manager/users/:id', authenticateToken, async (req, res) => {
 app.post('/api/admin/hotels', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
-    const { name, code } = req.body;
+    const { name, code, departments } = req.body;
 
     // Check if user is admin
     if (user.role !== 'admin') {
@@ -1564,6 +1611,18 @@ app.post('/api/admin/hotels', authenticateToken, async (req, res) => {
     // Validate required fields
     if (!name || !code) {
       return res.status(400).json({ error: 'Hotel name and code are required' });
+    }
+
+    // Validate departments
+    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+    if (!departments || !Array.isArray(departments) || departments.length === 0) {
+      return res.status(400).json({ error: 'At least one department must be selected' });
+    }
+
+    // Check if all selected departments are valid
+    const invalidDepts = departments.filter(dept => !validDepartments.includes(dept));
+    if (invalidDepts.length > 0) {
+      return res.status(400).json({ error: `Invalid departments: ${invalidDepts.join(', ')}` });
     }
 
     // Check if hotel code already exists
@@ -1587,17 +1646,99 @@ app.post('/api/admin/hotels', authenticateToken, async (req, res) => {
       new Date()
     ]);
 
+    // Insert hotel departments
+    for (const department of departments) {
+      await db.query(`
+        INSERT INTO hotel_departments (hotel_code, department)
+        VALUES (?, ?)
+      `, [code, department]);
+    }
+
     res.json({
       success: true,
       message: 'Hotel created successfully',
       hotel: {
         id: code,
         name,
-        code
+        code,
+        departments
       }
     });
   } catch (error) {
     console.error('Create hotel error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * PUT /api/admin/hotels/:id
+ * Update hotel information and departments (admin only)
+ * Requires authentication and admin role
+ */
+app.put('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    const hotelId = req.params.id;
+    const { name, departments } = req.body;
+
+    // Check if user is admin
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    // Validate departments if provided
+    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+    if (departments) {
+      if (!Array.isArray(departments) || departments.length === 0) {
+        return res.status(400).json({ error: 'At least one department must be selected' });
+      }
+
+      const invalidDepts = departments.filter(dept => !validDepartments.includes(dept));
+      if (invalidDepts.length > 0) {
+        return res.status(400).json({ error: `Invalid departments: ${invalidDepts.join(', ')}` });
+      }
+    }
+
+    // Check if hotel exists
+    const existingHotels = await db.query(`
+      SELECT code FROM hotels WHERE id = ?
+    `, [hotelId]);
+
+    if (existingHotels.length === 0) {
+      return res.status(404).json({ error: 'Hotel not found' });
+    }
+
+    const hotelCode = existingHotels[0].code;
+
+    // Update hotel name if provided
+    if (name) {
+      await db.query(`
+        UPDATE hotels SET name = ?, updatedAt = ? WHERE id = ?
+      `, [name, new Date(), hotelId]);
+    }
+
+    // Update departments if provided
+    if (departments) {
+      // Delete existing departments
+      await db.query(`
+        DELETE FROM hotel_departments WHERE hotel_code = ?
+      `, [hotelCode]);
+
+      // Insert new departments
+      for (const department of departments) {
+        await db.query(`
+          INSERT INTO hotel_departments (hotel_code, department)
+          VALUES (?, ?)
+        `, [hotelCode, department]);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Hotel updated successfully'
+    });
+  } catch (error) {
+    console.error('Update hotel error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -1636,6 +1777,20 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
     const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
     if (department && role === 'employee' && !validDepartments.includes(department)) {
       return res.status(400).json({ error: 'Invalid department' });
+    }
+
+    // If employee, validate that department is allowed for the hotel
+    if (role === 'employee' && department) {
+      const hotelDepts = await db.query(`
+        SELECT department FROM hotel_departments WHERE hotel_code = ?
+      `, [hotelCode]);
+      
+      const allowedDepts = hotelDepts.map(row => row.department);
+      if (allowedDepts.length > 0 && !allowedDepts.includes(department)) {
+        return res.status(400).json({ 
+          error: `Department '${department}' is not available for this hotel. Allowed departments: ${allowedDepts.join(', ')}`
+        });
+      }
     }
 
     // Check if username already exists
