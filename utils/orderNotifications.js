@@ -198,7 +198,7 @@ async function getOrderStatus(orderId) {
 
 async function isOrderStillPending(orderId) {
     const order = await getOrderStatus(orderId);
-    return Boolean(order && !order.assigned_to && !order.completed_at);
+    return Boolean(order && !order.assigned_to && !order.completed_at && !order.on_hold);
 }
 
 /**

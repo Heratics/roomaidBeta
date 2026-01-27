@@ -1923,6 +1923,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
         WHERE o.hotel_code = ? 
           AND o.assigned_to IS NULL 
           AND o.deleted_at IS NULL
+          AND o.on_hold = 0
           AND o.created_at <= ?
           AND NOT EXISTS (
             SELECT 1 FROM order_notifications 
@@ -1949,6 +1950,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
         WHERE o.hotel_code = ? 
           AND o.assigned_to IS NULL 
           AND o.deleted_at IS NULL
+          AND o.on_hold = 0
           AND o.created_at <= ?
           AND NOT EXISTS (
             SELECT 1 FROM order_notifications 
@@ -1975,6 +1977,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
         WHERE o.hotel_code = ? 
           AND o.assigned_to IS NULL 
           AND o.deleted_at IS NULL
+          AND o.on_hold = 0
           AND o.created_at <= ?
           AND NOT EXISTS (
             SELECT 1 FROM order_notifications 
@@ -2001,6 +2004,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
         WHERE o.hotel_code = ? 
           AND o.assigned_to IS NULL 
           AND o.deleted_at IS NULL
+          AND o.on_hold = 0
           AND o.created_at <= ?
           AND NOT EXISTS (
             SELECT 1 FROM order_notifications 
