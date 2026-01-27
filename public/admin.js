@@ -510,6 +510,21 @@ function setupFormHandlers() {
     if (editUserForm) {
         editUserForm.addEventListener('submit', handleEditUserSubmit);
     }
+
+    // Add role change listener for edit modal
+    const editRoleSelect = document.getElementById('editRole');
+    const editDepartmentField = document.getElementById('editDepartmentField');
+    if (editRoleSelect && editDepartmentField) {
+        editRoleSelect.addEventListener('change', function() {
+            if (this.value === 'employee') {
+                editDepartmentField.style.display = 'flex';
+            } else {
+                editDepartmentField.style.display = 'none';
+                const editDepartment = document.getElementById('editDepartment');
+                if (editDepartment) editDepartment.value = '';
+            }
+        });
+    }
     
     // Add hotel form
     const addHotelForm = document.getElementById('add-hotel-form');
@@ -910,6 +925,23 @@ function editUser(userId) {
     document.getElementById('editRole').value = user.role || 'employee';
     document.getElementById('editPassword').value = '';
     
+    // Handle department field
+    const editDepartmentField = document.getElementById('editDepartmentField');
+    const editDepartment = document.getElementById('editDepartment');
+    
+    if (user.role === 'employee') {
+        if (editDepartmentField) editDepartmentField.style.display = 'flex';
+        if (editDepartment) editDepartment.value = user.department || '';
+        
+        // Load hotel departments for filtering
+        if (user.hotel_code) {
+            loadHotelDepartmentsForEdit(user.hotel_code);
+        }
+    } else {
+        if (editDepartmentField) editDepartmentField.style.display = 'none';
+        if (editDepartment) editDepartment.value = '';
+    }
+    
     // Show the modal
     document.getElementById('editUserModal').style.display = 'flex';
 }
@@ -927,6 +959,7 @@ async function handleEditUserSubmit(event) {
     const username = document.getElementById('editUsername').value;
     const password = document.getElementById('editPassword').value;
     const role = document.getElementById('editRole').value;
+    const department = document.getElementById('editDepartment').value;
     
     if (!firstName || !lastName || !username) {
         showAlert('First name, last name, and username are required', 'error');
@@ -944,6 +977,11 @@ async function handleEditUserSubmit(event) {
         // Only include password if it was provided
         if (password) {
             updateData.password = password;
+        }
+        
+        // Include department if role is employee
+        if (role === 'employee') {
+            updateData.department = department || null;
         }
         
         const response = await fetch(`/api/admin/users/${userId}`, {
@@ -1584,6 +1622,30 @@ function updateDepartmentOptions(selectElement, departments) {
     // Restore previous selection if still valid
     if (departments.includes(currentValue)) {
         selectElement.value = currentValue;
+    }
+}
+
+/**
+ * Load hotel departments for edit modal
+ */
+async function loadHotelDepartmentsForEdit(hotelCode) {
+    if (!hotelCode) return;
+    
+    try {
+        const response = await fetch(`/api/hotels/${hotelCode}/departments`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            const editDepartment = document.getElementById('editDepartment');
+            updateDepartmentOptions(editDepartment, result.departments);
+        }
+    } catch (error) {
+        console.error('Error loading hotel departments:', error);
     }
 }
 

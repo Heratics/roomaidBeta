@@ -643,6 +643,17 @@
                         <option value="admin">Admin</option>
                     </select>
                 </div>
+
+                <div id="editDepartmentField" style="display: none; flex-direction: column;">
+                    <label for="editDepartment" style="margin-bottom: 5px; font-weight: 500;">Department:</label>
+                    <select id="editDepartment" name="department" style="padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-secondary); color: var(--text-primary);">
+                        <option value="">Select Department</option>
+                        <option value="Engineering">Engineering</option>
+                        <option value="Housekeeping">Housekeeping</option>
+                        <option value="Laundry">Laundry</option>
+                        <option value="Room Service">Room Service</option>
+                    </select>
+                </div>
                 
                 <div style="display: flex; gap: 10px; margin-top: 15px;">
                     <button type="button" onclick="closeEditUserModal()" style="flex: 1; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; color: var(--text-primary); font-weight: 500;">Cancel</button>

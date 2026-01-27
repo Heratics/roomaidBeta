@@ -633,6 +633,104 @@ function showDashboard() {
         console.log('User span updated');
     }
     
+    // Load hotel departments and filter tabs accordingly
+    loadHotelDepartmentsAndFilterTabs();
+}
+
+/**
+ * Load hotel departments and filter visible tabs
+ */
+async function loadHotelDepartmentsAndFilterTabs() {
+    try {
+        const hotelCode = currentUser.hotelCode || currentUser.hotel_code;
+        if (!hotelCode) {
+            console.error('No hotel code found for user');
+            setupDefaultDashboard();
+            return;
+        }
+
+        const response = await fetch(`/api/hotels/${hotelCode}/departments`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${currentToken}`
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            const allowedDepartments = result.departments || [];
+            console.log('Hotel allowed departments:', allowedDepartments);
+            
+            // Filter tabs based on hotel's departments
+            const allTabs = document.querySelectorAll('.tab-btn[data-department]');
+            let firstVisibleTab = null;
+            
+            allTabs.forEach(btn => {
+                const deptName = btn.dataset.department;
+                if (!deptName) return;
+                
+                if (allowedDepartments.includes(deptName)) {
+                    // Show this tab
+                    btn.style.display = '';
+                    if (!firstVisibleTab) firstVisibleTab = btn;
+                } else {
+                    // Hide this tab
+                    btn.style.display = 'none';
+                }
+            });
+            
+            // If user is an employee with a department, restrict to their department only
+            if (currentUser.role === 'employee' && currentUser.department) {
+                currentDepartment = currentUser.department;
+                console.log(`Employee assigned to department: ${currentDepartment}`);
+                
+                // Disable all other department tabs for employees
+                allTabs.forEach(btn => {
+                    if (btn.dataset.department !== currentUser.department) {
+                        btn.disabled = true;
+                        btn.style.opacity = '0.5';
+                        btn.style.cursor = 'not-allowed';
+                        btn.title = 'You can only access your assigned department';
+                    } else {
+                        btn.disabled = false;
+                        btn.style.opacity = '1';
+                        btn.style.cursor = 'pointer';
+                        btn.title = '';
+                    }
+                });
+            } else {
+                // For non-employees (supervisors, managers, admins), set to first visible department
+                if (firstVisibleTab) {
+                    currentDepartment = firstVisibleTab.dataset.department;
+                    // Set first visible tab as active
+                    allTabs.forEach(btn => btn.classList.remove('active'));
+                    firstVisibleTab.classList.add('active');
+                }
+            }
+            
+            // Load orders for the selected department
+            console.log('Loading orders...');
+            loadOrders();
+            
+            // Start auto-refresh
+            startAutoRefresh();
+            
+            // Start notifications polling
+            startNotificationsPolling();
+        } else {
+            console.error('Failed to load hotel departments');
+            setupDefaultDashboard();
+        }
+    } catch (error) {
+        console.error('Error loading hotel departments:', error);
+        setupDefaultDashboard();
+    }
+}
+
+/**
+ * Setup dashboard with default behavior (fallback)
+ */
+function setupDefaultDashboard() {
     // If user is an employee with a department, set currentDepartment to their assigned department
     if (currentUser.role === 'employee' && currentUser.department) {
         currentDepartment = currentUser.department;
