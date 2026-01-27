@@ -1980,7 +1980,7 @@ app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
   try {
     const user = req.user;
     const { id } = req.params;
-    const { firstName, lastName, username, password, role } = req.body;
+    const { firstName, lastName, username, password, role, department } = req.body;
 
     // Check if user is admin
     if (user.role !== 'admin') {
@@ -1997,14 +1997,34 @@ app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid role' });
     }
 
+    // Validate department if provided and role is employee
+    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+    if (department && role === 'employee' && !validDepartments.includes(department)) {
+      return res.status(400).json({ error: 'Invalid department' });
+    }
+
     // Check if target user exists
     const targetUser = await db.query(`
-      SELECT id, username FROM users 
+      SELECT id, username, hotel_code FROM users 
       WHERE id = ?
     `, [id]);
 
     if (targetUser.length === 0) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    // If employee, validate that department is allowed for the hotel
+    if (role === 'employee' && department) {
+      const hotelDepts = await db.query(`
+        SELECT department FROM hotel_departments WHERE hotel_code = ?
+      `, [targetUser[0].hotel_code]);
+      
+      const allowedDepts = hotelDepts.map(row => row.department);
+      if (allowedDepts.length > 0 && !allowedDepts.includes(department)) {
+        return res.status(400).json({ 
+          error: `Department '${department}' is not available for this hotel. Allowed departments: ${allowedDepts.join(', ')}`
+        });
+      }
     }
 
     // Check if new username already exists (only if username changed)
@@ -2034,6 +2054,14 @@ app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
       updateParams.push(role);
     }
 
+    // Set department to NULL if role is not employee, otherwise update it
+    if (role && role !== 'employee') {
+      updateQuery += `, department = NULL`;
+    } else if (role === 'employee' && department !== undefined) {
+      updateQuery += `, department = ?`;
+      updateParams.push(department || null);
+    }
+
     updateQuery += ` WHERE id = ?`;
     updateParams.push(id);
 
@@ -2042,7 +2070,7 @@ app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
 
     // Fetch updated user
     const updatedUser = await db.query(`
-      SELECT u.id, u.username, u.first_name, u.last_name, u.hotel_code, u.role, h.name as hotelName
+      SELECT u.id, u.username, u.first_name, u.last_name, u.hotel_code, u.role, u.department, h.name as hotelName
       FROM users u
       LEFT JOIN hotels h ON u.hotel_code = h.code
       WHERE u.id = ?
