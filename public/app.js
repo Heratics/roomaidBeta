@@ -1864,6 +1864,55 @@ function showAddOrderModal() {
     if (addOrderForm) {
         addOrderForm.reset();
     }
+
+    // Filter department options based on hotel's allowed departments
+    filterAddOrderDepartments();
+}
+
+// Filter department dropdown in add order modal based on hotel's departments
+async function filterAddOrderDepartments() {
+    try {
+        const hotelCode = currentUser.hotelCode || currentUser.hotel_code;
+        if (!hotelCode) {
+            console.error('No hotel code found for user');
+            return;
+        }
+
+        const response = await fetch(`/api/hotels/${hotelCode}/departments`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${currentToken}`
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            const allowedDepartments = result.departments || ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+            
+            // Update the department dropdown
+            const orderDepartmentSelect = document.getElementById('orderDepartment');
+            if (orderDepartmentSelect) {
+                const currentValue = orderDepartmentSelect.value;
+                orderDepartmentSelect.innerHTML = '';
+                
+                allowedDepartments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept;
+                    option.textContent = dept;
+                    orderDepartmentSelect.appendChild(option);
+                });
+
+                // Set to current department if available in allowed departments
+                if (currentDepartment && allowedDepartments.includes(currentDepartment)) {
+                    orderDepartmentSelect.value = currentDepartment;
+                } else if (allowedDepartments.length > 0) {
+                    orderDepartmentSelect.value = allowedDepartments[0];
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error filtering order departments:', error);
+    }
 }
 
 // Hide add order modal
