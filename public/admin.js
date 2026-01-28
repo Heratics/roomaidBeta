@@ -241,6 +241,7 @@ function hideLoginForm() {
                                 <option value="employee">Employee</option>
                                 <option value="supervisor">Supervisor</option>
                                 <option value="manager">Manager</option>
+                                <option value="front_desk">Front Desk</option>
                                 <option value="admin">Admin</option>
                             </select>
                         </div>

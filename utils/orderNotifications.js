@@ -16,13 +16,14 @@ async function notifyNewOrder(orderId, department, hotelCode, orderDetails) {
     try {
         console.log(`Sending new order notification for order ${orderId} to ${department} department`);
         
-        // Get all users in the department for this hotel
-        // For employees, only those assigned to this department
-        // For supervisors/managers/admins, all of them get notified
+        // Get all users who should receive this notification:
+        // - Front desk users (see all departments)
+        // - Supervisors/managers/admins in the hotel
+        // - Employees assigned to this department
         const users = await db.query(`
             SELECT id FROM users 
             WHERE hotel_code = ?
-            AND (role != 'employee' OR department = ?)
+            AND (role = 'front_desk' OR role != 'employee' OR department = ?)
         `, [hotelCode, department]);
         
         if (!users || users.length === 0) {
@@ -78,16 +79,18 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
                 console.log(`Sending ${minutes}-minute reminder for order ${orderId}`);
                 
                 try {
-                    // Get users for notifications - filter by department for employees
+                    // Get users for notifications:
+                    // - Front desk users (see all departments)
+                    // - Supervisors/managers/admins
+                    // - Employees assigned to this department
                     let query = `
                         SELECT id FROM users 
                         WHERE hotel_code = ?
                     `;
                     const params = [hotelCode];
 
-                    // For employees, only notify those assigned to this department
-                    // For supervisors/managers/admins, notify all
-                    query += ` AND (role != 'employee' OR department = ?)`;
+                    // Include front desk, supervisors, managers, admins, and employees for this department
+                    query += ` AND (role = 'front_desk' OR role != 'employee' OR department = ?)`;
                     params.push(department);
 
                     const users = await db.query(query, params);
@@ -126,10 +129,10 @@ function scheduleReminders(orderId, department, hotelCode, orderDetails) {
             console.log(`Order ${orderId} still pending after 15 minutes, notifying supervisors`);
             
             try {
-                // Get all supervisors/managers/admins for the hotel
+                // Get all supervisors/managers/admins and front desk users for the hotel
                 const supervisors = await db.query(`
                     SELECT id FROM users 
-                    WHERE hotel_code = ? AND role IN ('supervisor', 'manager', 'admin')
+                    WHERE hotel_code = ? AND role IN ('supervisor', 'manager', 'admin', 'front_desk')
                 `, [hotelCode]);
 
                 const supervisorIds = supervisors.map(s => s.id);

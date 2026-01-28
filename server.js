@@ -236,6 +236,7 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
     let params = [user.hotel_code || user.hotelCode];
 
     // If user is an employee, only show orders from their assigned department
+    // Front desk can see all departments
     if (user.role === 'employee' && user.department) {
       // Check if the requested department matches the user's assigned department
       if (department !== user.department) {
@@ -2540,8 +2541,8 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
             minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
           }))
         );
-      } else if (['supervisor', 'manager', 'admin'].includes(user.role)) {
-        // All roles except employees get 3-minute and 5-minute alerts
+      } else if (['supervisor', 'manager', 'admin', 'front_desk'].includes(user.role)) {
+        // Supervisors, managers, admins, and front desk get 3-minute and 5-minute alerts
         userNotifications = level1Orders.map(order => ({
           ...order,
           department: deptName,
@@ -2558,7 +2559,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
           }))
         );
 
-        // Managers, supervisors, and admins also get the 8-minute and 10-minute alerts
+        // Managers, supervisors, admins, and front desk also get the 8-minute and 10-minute alerts
         userNotifications = userNotifications.concat(
           level3Orders.map(order => ({
             ...order,
