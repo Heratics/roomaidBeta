@@ -1967,20 +1967,15 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
       // Delete each user's related data
       for (const userRow of users) {
         const userId = userRow.id;
-        
-        // Set changed_by to NULL in order logs
-        await db.query(`UPDATE order_logs SET changed_by = NULL WHERE changed_by = ?`, [userId]);
-        
-        // Set orders' user references to NULL
-        await db.query(`UPDATE engineering_orders SET sent_by = NULL WHERE sent_by = ?`, [userId]);
-        await db.query(`UPDATE housekeeping_orders SET sent_by = NULL WHERE sent_by = ?`, [userId]);
-        await db.query(`UPDATE laundry_orders SET sent_by = NULL WHERE sent_by = ?`, [userId]);
-        await db.query(`UPDATE roomservice_orders SET sent_by = NULL WHERE sent_by = ?`, [userId]);
 
-        await db.query(`UPDATE engineering_orders SET assigned_to = NULL WHERE assigned_to = ?`, [userId]);
-        await db.query(`UPDATE housekeeping_orders SET assigned_to = NULL WHERE assigned_to = ?`, [userId]);
-        await db.query(`UPDATE laundry_orders SET assigned_to = NULL WHERE assigned_to = ?`, [userId]);
-        await db.query(`UPDATE roomservice_orders SET assigned_to = NULL WHERE assigned_to = ?`, [userId]);
+        // Delete related order logs (FK to users)
+        await db.query(`DELETE FROM order_logs WHERE changed_by = ?`, [userId]);
+
+        // Delete all orders related to this user (both created and assigned)
+        await db.query(`DELETE FROM engineering_orders WHERE sent_by = ? OR assigned_to = ?`, [userId, userId]);
+        await db.query(`DELETE FROM housekeeping_orders WHERE sent_by = ? OR assigned_to = ?`, [userId, userId]);
+        await db.query(`DELETE FROM laundry_orders WHERE sent_by = ? OR assigned_to = ?`, [userId, userId]);
+        await db.query(`DELETE FROM roomservice_orders WHERE sent_by = ? OR assigned_to = ?`, [userId, userId]);
 
         // Delete FCM tokens
         await db.query(`DELETE FROM fcm_tokens WHERE user_id = ?`, [userId]);
@@ -1990,6 +1985,9 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
           await db.query(`DELETE FROM push_subscriptions WHERE user_id = ?`, [userId]);
         }
       }
+
+      // Delete notification records tied to this hotel
+      await db.query(`DELETE FROM order_notifications WHERE hotel_code = ?`, [hotelCode]);
 
       // Delete all users in this hotel
       await db.query(`DELETE FROM users WHERE hotel_code = ?`, [hotelCode]);
