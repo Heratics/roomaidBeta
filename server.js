@@ -1959,6 +1959,9 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
       for (const userRow of users) {
         const userId = userRow.id;
         
+        // Set changed_by to NULL in order logs
+        await db.query(`UPDATE order_logs SET changed_by = NULL WHERE changed_by = ?`, [userId]);
+        
         // Set orders' user references to NULL
         await db.query(`UPDATE engineering_orders SET sent_by = NULL WHERE sent_by = ?`, [userId]);
         await db.query(`UPDATE housekeeping_orders SET sent_by = NULL WHERE sent_by = ?`, [userId]);
@@ -2232,8 +2235,8 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
     }
 
     // Always handle related data to avoid constraint violations
-    // Delete order logs entries (this user might have changed orders)
-    await db.query(`DELETE FROM order_logs WHERE changed_by = ?`, [id]);
+    // Set changed_by to NULL in order logs (this user might have changed orders)
+    await db.query(`UPDATE order_logs SET changed_by = NULL WHERE changed_by = ?`, [id]);
 
     // Set sent_by to NULL for orders created by this user
     await db.query(`UPDATE engineering_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
