@@ -1918,6 +1918,15 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const override = req.query.override === 'true';
 
+    // Check if legacy push_subscriptions table exists (pre-FCM)
+    const pushTableCheck = await db.query(`
+      SELECT COUNT(*) as count
+      FROM information_schema.tables
+      WHERE table_schema = DATABASE()
+        AND table_name = 'push_subscriptions'
+    `);
+    const hasPushSubscriptions = pushTableCheck[0]?.count > 0;
+
     // Check if user is admin
     if (user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
@@ -1975,6 +1984,11 @@ app.delete('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
 
         // Delete FCM tokens
         await db.query(`DELETE FROM fcm_tokens WHERE user_id = ?`, [userId]);
+
+        // Delete legacy push subscriptions if table exists
+        if (hasPushSubscriptions) {
+          await db.query(`DELETE FROM push_subscriptions WHERE user_id = ?`, [userId]);
+        }
       }
 
       // Delete all users in this hotel
@@ -2179,6 +2193,15 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const override = req.query.override === 'true';
 
+    // Check if legacy push_subscriptions table exists (pre-FCM)
+    const pushTableCheck = await db.query(`
+      SELECT COUNT(*) as count
+      FROM information_schema.tables
+      WHERE table_schema = DATABASE()
+        AND table_name = 'push_subscriptions'
+    `);
+    const hasPushSubscriptions = pushTableCheck[0]?.count > 0;
+
     // Check if user is admin
     if (user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
@@ -2246,6 +2269,11 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
 
     // Delete related FCM tokens
     await db.query(`DELETE FROM fcm_tokens WHERE user_id = ?`, [id]);
+
+    // Delete legacy push subscriptions if table exists
+    if (hasPushSubscriptions) {
+      await db.query(`DELETE FROM push_subscriptions WHERE user_id = ?`, [id]);
+    }
 
     // Delete the user
     await db.query(`DELETE FROM users WHERE id = ?`, [id]);
