@@ -103,17 +103,35 @@ class Auth {
     try {
       let query, params;
 
+      // For admins, allow login with any hotel code (they can access all hotels)
+      // For other roles, validate the specific hotel code
       if (hotel_code) {
-        // Query with hotel code filter
-        query = `
-          SELECT u.*, h.name as hotelName, h.code as hotelCode
-          FROM users u
-          LEFT JOIN hotels h ON UPPER(u.hotel_code) = UPPER(h.code)
-          WHERE u.username = ? AND u.hotel_code = ?
-        `;
-        params = [username, hotel_code];
+        // Check if user is admin first
+        const adminCheck = await db.query(`
+          SELECT u.role FROM users u WHERE u.username = ?
+        `, [username]);
+
+        if (adminCheck.length > 0 && adminCheck[0].role === 'admin') {
+          // Admin can login with any hotel code - verify it exists
+          query = `
+            SELECT u.*, h.name as hotelName, h.code as hotelCode
+            FROM users u
+            LEFT JOIN hotels h ON UPPER(h.code) = UPPER(?)
+            WHERE u.username = ? AND u.role = 'admin'
+          `;
+          params = [hotel_code, username];
+        } else {
+          // Non-admin users must use their assigned hotel
+          query = `
+            SELECT u.*, h.name as hotelName, h.code as hotelCode
+            FROM users u
+            LEFT JOIN hotels h ON UPPER(u.hotel_code) = UPPER(h.code)
+            WHERE u.username = ? AND u.hotel_code = ?
+          `;
+          params = [username, hotel_code];
+        }
       } else {
-        // Query without hotel code filter (for admin login)
+        // Query without hotel code filter (for admin or general login)
         query = `
           SELECT u.*, h.name as hotelName, h.code as hotelCode
           FROM users u
@@ -134,6 +152,7 @@ class Auth {
           id: users[0].id,
           username: users[0].username,
           hasPasswordHash: !!users[0].passwordHash,
+          role: users[0].role,
           hotel_code: users[0].hotel_code
         });
       }
@@ -160,6 +179,9 @@ class Auth {
         return null;
       }
 
+      // For admin users, use the provided hotel code, otherwise use their assigned one
+      const finalHotelCode = user.role === 'admin' && hotel_code ? hotel_code : user.hotel_code;
+
       // Return user object with all necessary information
       return {
         id: user.id,
@@ -167,11 +189,11 @@ class Auth {
         first_name: user.first_name,
         last_name: user.last_name,
         name: user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim(),
-        hotelCode: user.hotel_code,
-        hotel_code: user.hotel_code,
+        hotelCode: finalHotelCode,
+        hotel_code: finalHotelCode,
         role: user.role,
         department: user.department || null,
-        hotelName: user.hotelName || `Hotel ${user.hotel_code}` // Use actual hotel name if available
+        hotelName: user.hotelName || `Hotel ${finalHotelCode}` // Use actual hotel name if available
       };
     } catch (error) {
       console.error('Authentication error:', error);

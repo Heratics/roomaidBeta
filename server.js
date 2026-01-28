@@ -1748,6 +1748,8 @@ app.put('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
  * POST /api/admin/users
  * Create a new user (admin only)
  * Requires authentication and admin role
+ * For admin users: hotel code is optional (they can access all hotels)
+ * For other users: hotel code is required
  */
 app.post('/api/admin/users', authenticateToken, async (req, res) => {
   try {
@@ -1762,7 +1764,6 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
     // Validate input
     const usernameValidation = validation.validateUsername(username);
     const passwordValidation = validation.validatePassword(password);
-    const hotelCodeValidation = validation.validateHotelCode(hotelCode);
 
     if (!usernameValidation.isValid) {
       return res.status(400).json({ error: usernameValidation.error });
@@ -1770,8 +1771,28 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
     if (!passwordValidation.isValid) {
       return res.status(400).json({ error: passwordValidation.error });
     }
-    if (!hotelCodeValidation.isValid) {
-      return res.status(400).json({ error: hotelCodeValidation.error });
+
+    // Hotel code is required for non-admin roles, optional for admins
+    let hotelCodeValidation = { isValid: true, value: hotelCode };
+    if (role !== 'admin') {
+      if (!hotelCode) {
+        return res.status(400).json({ error: 'Hotel code is required for non-admin users' });
+      }
+      hotelCodeValidation = validation.validateHotelCode(hotelCode);
+      if (!hotelCodeValidation.isValid) {
+        return res.status(400).json({ error: hotelCodeValidation.error });
+      }
+    } else {
+      // For admins, hotel code is optional but if provided, validate it
+      if (hotelCode) {
+        hotelCodeValidation = validation.validateHotelCode(hotelCode);
+        if (!hotelCodeValidation.isValid) {
+          return res.status(400).json({ error: hotelCodeValidation.error });
+        }
+      } else {
+        // Use a default or null for admin
+        hotelCodeValidation.value = hotelCode || null;
+      }
     }
 
     // Validate department if provided and role is employee
@@ -1781,10 +1802,10 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
     }
 
     // If employee, validate that department is allowed for the hotel
-    if (role === 'employee' && department) {
+    if (role === 'employee' && department && hotelCodeValidation.value) {
       const hotelDepts = await db.query(`
         SELECT department FROM hotel_departments WHERE hotel_code = ?
-      `, [hotelCode]);
+      `, [hotelCodeValidation.value]);
       
       const allowedDepts = hotelDepts.map(row => row.department);
       if (allowedDepts.length > 0 && !allowedDepts.includes(department)) {

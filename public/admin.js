@@ -228,7 +228,7 @@ function hideLoginForm() {
                             <input type="password" id="password" name="password" required>
                         </div>
                         
-                        <div class="form-group">
+                        <div id="hotelCodeFieldAdd" class="form-group">
                             <label for="hotelCode">Hotel Code:</label>
                             <select id="hotelCode" name="hotelCode" required>
                                 <option value="">Select Hotel</option>
@@ -448,24 +448,40 @@ function setupFormHandlers() {
         addUserForm.addEventListener('submit', handleAddUser);
     }
     
-    // Add role change listener to show/hide department field
+    // Add role change listener to show/hide department field and hotel code field
     const roleSelect = document.getElementById('role');
     const departmentFieldAdd = document.getElementById('departmentFieldAdd');
-    if (roleSelect && departmentFieldAdd) {
+    const hotelCodeFieldAdd = document.getElementById('hotelCodeFieldAdd');
+    if (roleSelect) {
         // Set initial state
         if (roleSelect.value === 'employee') {
-            departmentFieldAdd.style.display = 'block';
+            if (departmentFieldAdd) departmentFieldAdd.style.display = 'block';
+            if (hotelCodeFieldAdd) hotelCodeFieldAdd.style.display = 'block';
+        } else if (roleSelect.value === 'admin') {
+            if (departmentFieldAdd) departmentFieldAdd.style.display = 'none';
+            if (hotelCodeFieldAdd) hotelCodeFieldAdd.style.display = 'none';
         } else {
-            departmentFieldAdd.style.display = 'none';
+            if (departmentFieldAdd) departmentFieldAdd.style.display = 'none';
+            if (hotelCodeFieldAdd) hotelCodeFieldAdd.style.display = 'block';
         }
         
         // Listen for changes
         roleSelect.addEventListener('change', function() {
             if (this.value === 'employee') {
-                departmentFieldAdd.style.display = 'block';
+                if (departmentFieldAdd) departmentFieldAdd.style.display = 'block';
+                if (hotelCodeFieldAdd) hotelCodeFieldAdd.style.display = 'block';
+            } else if (this.value === 'admin') {
+                if (departmentFieldAdd) departmentFieldAdd.style.display = 'none';
+                if (hotelCodeFieldAdd) hotelCodeFieldAdd.style.display = 'none';
+                // Clear department and hotel selections when role is admin
+                const departmentSelect = document.getElementById('department');
+                const hotelSelect = document.getElementById('hotelCode');
+                if (departmentSelect) departmentSelect.value = '';
+                if (hotelSelect) hotelSelect.value = '';
             } else {
-                departmentFieldAdd.style.display = 'none';
-                // Clear department selection when role is not employee
+                if (departmentFieldAdd) departmentFieldAdd.style.display = 'none';
+                if (hotelCodeFieldAdd) hotelCodeFieldAdd.style.display = 'block';
+                // Clear department selection
                 const departmentSelect = document.getElementById('department');
                 if (departmentSelect) departmentSelect.value = '';
             }
@@ -556,12 +572,15 @@ async function handleAddUser(event) {
     const role = formData.get('role');
     const department = role === 'employee' ? formData.get('department') : null;
     
+    // Hotel code is not required for admin users
+    const hotelCode = role === 'admin' ? null : formData.get('hotelCode');
+    
     const userData = {
         firstName: formData.get('firstName'),
         lastName: formData.get('lastName'),
         username: formData.get('username'),
         password: formData.get('password'),
-        hotelCode: formData.get('hotelCode'),
+        hotelCode: hotelCode,
         role: role,
         department: department
     };
