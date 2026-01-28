@@ -2200,32 +2200,33 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
       ) as all_orders
     `, [id, id, id, id]);
 
-    // If user has orders and override is not specified, return error
+    // If user has orders and override is not specified, return error with option to override
     if (!override && (ordersCreated[0].count > 0 || ordersAssigned[0].count > 0)) {
       return res.status(400).json({ 
-        error: `Cannot delete user. This user has ${ordersCreated[0].count} order(s) created and ${ordersAssigned[0].count} order(s) assigned. Please reassign or delete these orders first.`,
+        error: `User has ${ordersCreated[0].count} order(s) created and ${ordersAssigned[0].count} order(s) assigned`,
         hasOrders: true,
         ordersCreated: ordersCreated[0].count,
         ordersAssigned: ordersAssigned[0].count
       });
     }
 
-    // If override is true, set orders' user references to NULL instead of deleting
-    if (override) {
-      // Set sent_by to NULL for orders created by this user
-      await db.query(`UPDATE engineering_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
-      await db.query(`UPDATE housekeeping_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
-      await db.query(`UPDATE laundry_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
-      await db.query(`UPDATE roomservice_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
+    // Always handle related data to avoid constraint violations
+    // Delete order logs entries (this user might have changed orders)
+    await db.query(`DELETE FROM order_logs WHERE changed_by = ?`, [id]);
 
-      // Set assigned_to to NULL for orders assigned to this user
-      await db.query(`UPDATE engineering_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
-      await db.query(`UPDATE housekeeping_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
-      await db.query(`UPDATE laundry_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
-      await db.query(`UPDATE roomservice_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
-    }
+    // Set sent_by to NULL for orders created by this user
+    await db.query(`UPDATE engineering_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
+    await db.query(`UPDATE housekeeping_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
+    await db.query(`UPDATE laundry_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
+    await db.query(`UPDATE roomservice_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
 
-    // Delete related FCM tokens first (no constraint issue)
+    // Set assigned_to to NULL for orders assigned to this user
+    await db.query(`UPDATE engineering_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
+    await db.query(`UPDATE housekeeping_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
+    await db.query(`UPDATE laundry_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
+    await db.query(`UPDATE roomservice_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
+
+    // Delete related FCM tokens
     await db.query(`DELETE FROM fcm_tokens WHERE user_id = ?`, [id]);
 
     // Delete the user
@@ -2237,15 +2238,7 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Delete user error:', error);
-    
-    // Check if it's a foreign key constraint error
-    if (error.code === 'ER_ROW_IS_REFERENCED_2') {
-      return res.status(400).json({ 
-        error: 'Cannot delete user. This user has related data (orders, logs, etc.). Please remove or reassign related data first.' 
-      });
-    }
-    
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Failed to delete user: ' + error.message });
   }
 });
 
