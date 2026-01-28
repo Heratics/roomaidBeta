@@ -2235,20 +2235,14 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
     }
 
     // Always handle related data to avoid constraint violations
-    // Set changed_by to NULL in order logs (this user might have changed orders)
-    await db.query(`UPDATE order_logs SET changed_by = NULL WHERE changed_by = ?`, [id]);
+    // Delete all orders related to this user (both created and assigned)
+    await db.query(`DELETE FROM engineering_orders WHERE sent_by = ? OR assigned_to = ?`, [id, id]);
+    await db.query(`DELETE FROM housekeeping_orders WHERE sent_by = ? OR assigned_to = ?`, [id, id]);
+    await db.query(`DELETE FROM laundry_orders WHERE sent_by = ? OR assigned_to = ?`, [id, id]);
+    await db.query(`DELETE FROM roomservice_orders WHERE sent_by = ? OR assigned_to = ?`, [id, id]);
 
-    // Set sent_by to NULL for orders created by this user
-    await db.query(`UPDATE engineering_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
-    await db.query(`UPDATE housekeeping_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
-    await db.query(`UPDATE laundry_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
-    await db.query(`UPDATE roomservice_orders SET sent_by = NULL WHERE sent_by = ?`, [id]);
-
-    // Set assigned_to to NULL for orders assigned to this user
-    await db.query(`UPDATE engineering_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
-    await db.query(`UPDATE housekeeping_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
-    await db.query(`UPDATE laundry_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
-    await db.query(`UPDATE roomservice_orders SET assigned_to = NULL WHERE assigned_to = ?`, [id]);
+    // Delete related order logs
+    await db.query(`DELETE FROM order_logs WHERE changed_by = ?`, [id]);
 
     // Delete related FCM tokens
     await db.query(`DELETE FROM fcm_tokens WHERE user_id = ?`, [id]);
