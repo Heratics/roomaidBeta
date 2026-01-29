@@ -1175,7 +1175,7 @@ app.get('/api/hotels/:code/departments', authenticateToken, async (req, res) => 
     // If no departments configured, return all departments as fallback
     const deptList = departments.length > 0 
       ? departments.map(row => row.department)
-      : ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+      : ['Engineering', 'Housekeeping', 'Laundry', 'Room Service', 'Front Desk'];
 
     res.json({ departments: deptList });
   } catch (error) {
@@ -1512,7 +1512,7 @@ app.put('/api/manager/users/:id', authenticateToken, async (req, res) => {
     }
 
     // Validate department if provided and role is employee
-    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service', 'Front Desk'];
     if (department && role === 'employee' && !validDepartments.includes(department)) {
       return res.status(400).json({ error: 'Invalid department' });
     }
@@ -1615,7 +1615,7 @@ app.post('/api/admin/hotels', authenticateToken, async (req, res) => {
     }
 
     // Validate departments
-    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service', 'Front Desk'];
     if (!departments || !Array.isArray(departments) || departments.length === 0) {
       return res.status(400).json({ error: 'At least one department must be selected' });
     }
@@ -1688,7 +1688,7 @@ app.put('/api/admin/hotels/:id', authenticateToken, async (req, res) => {
     }
 
     // Validate departments if provided
-    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service', 'Front Desk'];
     if (departments) {
       if (!Array.isArray(departments) || departments.length === 0) {
         return res.status(400).json({ error: 'At least one department must be selected' });
@@ -1796,7 +1796,7 @@ app.post('/api/admin/users', authenticateToken, async (req, res) => {
     }
 
     // Validate department if provided and role is employee
-    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service', 'Front Desk'];
     if (department && role === 'employee' && !validDepartments.includes(department)) {
       return res.status(400).json({ error: 'Invalid department' });
     }
@@ -2039,7 +2039,7 @@ app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
     }
 
     // Validate department if provided and role is employee
-    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+    const validDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service', 'Front Desk'];
     if (department && role === 'employee' && !validDepartments.includes(department)) {
       return res.status(400).json({ error: 'Invalid department' });
     }

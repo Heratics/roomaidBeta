@@ -496,7 +496,7 @@ function setupFormHandlers() {
             const hotelCode = this.value;
             if (!hotelCode) {
                 // Reset to all departments if no hotel selected
-                updateDepartmentOptions(departmentSelect, ['Engineering', 'Housekeeping', 'Laundry', 'Room Service']);
+                updateDepartmentOptions(departmentSelect, ['Engineering', 'Housekeeping', 'Laundry', 'Room Service', 'Front Desk']);
                 return;
             }
 
@@ -513,11 +513,11 @@ function setupFormHandlers() {
                     updateDepartmentOptions(departmentSelect, result.departments);
                 } else {
                     // Fallback to all departments
-                    updateDepartmentOptions(departmentSelect, ['Engineering', 'Housekeeping', 'Laundry', 'Room Service']);
+                    updateDepartmentOptions(departmentSelect, ['Engineering', 'Housekeeping', 'Laundry', 'Room Service', 'Front Desk']);
                 }
             } catch (error) {
                 console.error('Error loading hotel departments:', error);
-                updateDepartmentOptions(departmentSelect, ['Engineering', 'Housekeeping', 'Laundry', 'Room Service']);
+                updateDepartmentOptions(departmentSelect, ['Engineering', 'Housekeeping', 'Laundry', 'Room Service', 'Front Desk']);
             }
         });
     }
