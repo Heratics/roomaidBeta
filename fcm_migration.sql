@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS `fcm_tokens` (
   INDEX `idx_user_id` (`user_id`),
   INDEX `idx_username` (`username`),
   INDEX `idx_created_at` (`created_at`),
-  UNIQUE KEY `uniq_user_token` (`user_id`, (`fcm_token`(255)))
+  UNIQUE KEY `uniq_user_token` (`user_id`, `fcm_token`(255))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Clean up old web-push tables
