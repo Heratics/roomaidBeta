@@ -26,6 +26,7 @@ const hotelName = document.getElementById('hotelName');
 const currentUserSpan = document.getElementById('currentUser');
 const dateFilter = document.getElementById('dateFilter');
 const clearDateFilter = document.getElementById('clearDateFilter');
+const refreshOrdersBtn = document.getElementById('refreshOrdersBtn');
 const orderNotes = document.getElementById('orderNotes');
 const currentLanguage = document.getElementById('currentLanguage');
 
@@ -79,6 +80,7 @@ const logsModal = document.getElementById('logsModal');
 const closeLogsModalBtn = document.getElementById('closeLogsModalBtn');
 const logsMenuItem = document.getElementById('logsMenuItem');
 const managerMenuItem = document.getElementById('managerMenuItem');
+const adminMenuItem = document.getElementById('adminMenuItem');
 
 // Edit order modal elements
 const editOrderModal = document.getElementById('editOrderModal');
@@ -139,6 +141,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show manager dashboard for managers, admins, and supervisors
             if (managerMenuItem && isPrivileged) {
                 managerMenuItem.style.display = 'flex';
+            }
+            if (adminMenuItem && currentUser.role === 'admin') {
+                adminMenuItem.style.display = 'flex';
             }
 
             initializePushNotifications();
@@ -201,6 +206,12 @@ function setupEventListeners() {
     
     if (clearDateFilter) {
         clearDateFilter.addEventListener('click', clearDateFilterHandler);
+    }
+
+    if (refreshOrdersBtn) {
+        refreshOrdersBtn.addEventListener('click', () => {
+            loadOrders();
+        });
     }
     
     // Delete confirmation modal
@@ -1896,7 +1907,10 @@ async function filterAddOrderDepartments() {
 
         if (response.ok) {
             const result = await response.json();
-            const allowedDepartments = result.departments || ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+            const allowedDepartments = (result.departments || ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'])
+                .filter(dept => String(dept).toLowerCase().replace(/[\s_]+/g, '') !== 'frontdesk');
+            const fallbackDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+            const selectableDepartments = allowedDepartments.length > 0 ? allowedDepartments : fallbackDepartments;
             
             // Update the department dropdown
             const orderDepartmentSelect = document.getElementById('orderDepartment');
@@ -1904,7 +1918,7 @@ async function filterAddOrderDepartments() {
                 const currentValue = orderDepartmentSelect.value;
                 orderDepartmentSelect.innerHTML = '';
                 
-                allowedDepartments.forEach(dept => {
+                selectableDepartments.forEach(dept => {
                     const option = document.createElement('option');
                     option.value = dept;
                     option.textContent = dept;
@@ -1912,10 +1926,10 @@ async function filterAddOrderDepartments() {
                 });
 
                 // Set to current department if available in allowed departments
-                if (currentDepartment && allowedDepartments.includes(currentDepartment)) {
+                if (currentDepartment && selectableDepartments.includes(currentDepartment)) {
                     orderDepartmentSelect.value = currentDepartment;
-                } else if (allowedDepartments.length > 0) {
-                    orderDepartmentSelect.value = allowedDepartments[0];
+                } else if (selectableDepartments.length > 0) {
+                    orderDepartmentSelect.value = selectableDepartments[0];
                 }
             }
         }
@@ -2261,6 +2275,7 @@ function updateUILanguage(language) {
             logout: 'Logout',
             filterByDate: 'Filter by Date',
             clear: 'Clear',
+            refresh: 'Refresh',
             engineering: 'Engineering',
             housekeeping: 'Housekeeping',
             laundry: 'Laundry',
@@ -2275,6 +2290,7 @@ function updateUILanguage(language) {
             logout: 'تسجيل خروج',
             filterByDate: 'تصفية حسب التاريخ',
             clear: 'مسح',
+            refresh: 'تحديث',
             engineering: 'هندسة',
             housekeeping: 'خدمات الغرف',
             laundry: 'غسيل',
@@ -2291,6 +2307,7 @@ function updateUILanguage(language) {
     if (cancelOrderBtn) cancelOrderBtn.textContent = texts.cancel;
     // Logout is now in settings menu, no need to update here
     if (clearDateFilter) clearDateFilter.textContent = texts.clear;
+    if (refreshOrdersBtn) refreshOrdersBtn.textContent = texts.refresh;
     
     // Update labels
     const roomNumberLabel = document.querySelector('label[for="orderRoomNumber"]');
@@ -2638,4 +2655,21 @@ function processAllArabicText() {
     notesElements.forEach(element => {
         processArabicText(element);
     });
+}
+
+function openAdminPanel() {
+    if (!currentUser || currentUser.role !== 'admin') {
+        showToast('Admin access required', 'error');
+        return;
+    }
+
+    try {
+        const win = window.open('admin.html', '_blank', 'noopener,noreferrer');
+        if (win && typeof win.focus === 'function') {
+            win.focus();
+        }
+    } catch (e) {
+        // Fallback to same-tab navigation if popup blocked
+        window.location.href = 'admin.html';
+    }
 }
