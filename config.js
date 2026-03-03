@@ -10,7 +10,7 @@ module.exports = {
     connectionLimit: 10,
     queueLimit: 0,
     ssl: process.env.DB_ENCRYPT === 'true' ? {
-      rejectUnauthorized: process.env.DB_TRUST_CERT !== 'true'
+      rejectUnauthorized: process.env.DB_TRUST_CERT === 'false'
     } : null
   },
 

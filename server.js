@@ -3,7 +3,12 @@
  * Main Express.js server for the hotel task management system
  * Handles authentication, API endpoints, and database operations
  */
-require('dotenv').config();
+const dotenv = require('dotenv');
+dotenv.config();
+
+if (process.env.NODE_ENV === 'production' && !process.env.DB_SERVER) {
+  dotenv.config({ path: '.env.render' });
+}
 
 
 // ============================================================================
