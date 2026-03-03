@@ -2275,7 +2275,7 @@ function updateUILanguage(language) {
             logout: 'Logout',
             filterByDate: 'Filter by Date',
             clear: 'Clear',
-            refresh: 'Refresh',
+            refresh: 'Refresh orders',
             engineering: 'Engineering',
             housekeeping: 'Housekeeping',
             laundry: 'Laundry',
@@ -2290,7 +2290,7 @@ function updateUILanguage(language) {
             logout: 'تسجيل خروج',
             filterByDate: 'تصفية حسب التاريخ',
             clear: 'مسح',
-            refresh: 'تحديث',
+            refresh: 'تحديث الطلبات',
             engineering: 'هندسة',
             housekeeping: 'خدمات الغرف',
             laundry: 'غسيل',
@@ -2307,7 +2307,11 @@ function updateUILanguage(language) {
     if (cancelOrderBtn) cancelOrderBtn.textContent = texts.cancel;
     // Logout is now in settings menu, no need to update here
     if (clearDateFilter) clearDateFilter.textContent = texts.clear;
-    if (refreshOrdersBtn) refreshOrdersBtn.textContent = texts.refresh;
+    if (refreshOrdersBtn) {
+        refreshOrdersBtn.textContent = '🔄';
+        refreshOrdersBtn.title = texts.refresh;
+        refreshOrdersBtn.setAttribute('aria-label', texts.refresh);
+    }
     
     // Update labels
     const roomNumberLabel = document.querySelector('label[for="orderRoomNumber"]');
