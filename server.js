@@ -99,6 +99,15 @@ function getOrderTypeFromTableName(tableName) {
   }
 }
 
+function isFrontDeskAccessUser(user) {
+  if (!user) return false;
+  const normalizedDepartment = String(user.department || '')
+    .toLowerCase()
+    .replace(/[\s_]+/g, '');
+
+  return user.role === 'front_desk' || (user.role === 'employee' && normalizedDepartment === 'frontdesk');
+}
+
 const authenticateToken = (req, res, next) => {
   // Extract token from Authorization header or session
   const token = req.headers.authorization?.split(' ')[1] || req.session.token;
@@ -242,9 +251,10 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
 
     // If user is an employee, only show orders from their assigned department
     // Front desk can see all departments
-    if (user.role === 'employee' && user.department) {
+    const isFrontDeskUser = isFrontDeskAccessUser(user);
+    if (user.role === 'employee' && user.department && !isFrontDeskUser) {
       // Check if the requested department matches the user's assigned department
-      if (department !== user.department) {
+      if (String(department).toLowerCase() !== String(user.department).toLowerCase()) {
         return res.status(403).json({ error: 'You can only view orders from your assigned department' });
       }
     }
@@ -2563,7 +2573,8 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
       let userNotifications = [];
 
       // For employees, only show their assigned department
-      if (user.role === 'employee') {
+      const isFrontDeskUser = isFrontDeskAccessUser(user);
+      if (user.role === 'employee' && !isFrontDeskUser) {
         if (user.department !== deptName) {
           continue; // Skip this department for employees not assigned to it
         }
@@ -2583,7 +2594,7 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
             minutesOld: Math.floor((Date.now() - new Date(order.created_at).getTime()) / 60000)
           }))
         );
-      } else if (['supervisor', 'manager', 'admin', 'front_desk'].includes(user.role)) {
+      } else if (['supervisor', 'manager', 'admin', 'front_desk'].includes(user.role) || isFrontDeskUser) {
         // Supervisors, managers, admins, and front desk get 3-minute and 5-minute alerts
         userNotifications = level1Orders.map(order => ({
           ...order,
@@ -2676,7 +2687,7 @@ app.get('/api/notifications/new-orders', authenticateToken, async (req, res) => 
       const deptName = departmentMap[dept];
 
       // For employees, skip departments they're not assigned to
-      if (user.role === 'employee' && user.department !== deptName) {
+      if (user.role === 'employee' && !isFrontDeskAccessUser(user) && user.department !== deptName) {
         continue;
       }
 

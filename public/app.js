@@ -65,6 +65,15 @@ let orderToHold = null;
 let holdOrderDay = null; // 'same-day' or 'next-day'
 let holdNextDayTime = null; // time for next-day holds in HH:MM format
 
+function isFrontDeskAccessUser() {
+    if (!currentUser) return false;
+    const normalizedDepartment = String(currentUser.department || '')
+        .toLowerCase()
+        .replace(/[\s_]+/g, '');
+
+    return currentUser.role === 'front_desk' || (currentUser.role === 'employee' && normalizedDepartment === 'frontdesk');
+}
+
 // Logs modal elements
 const logsModal = document.getElementById('logsModal');
 const closeLogsModalBtn = document.getElementById('closeLogsModalBtn');
@@ -164,7 +173,7 @@ function setupEventListeners() {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             // For employees, prevent switching to different departments
-            if (currentUser.role === 'employee' && btn.dataset.department !== currentUser.department) {
+            if (currentUser.role === 'employee' && !isFrontDeskAccessUser() && btn.dataset.department !== currentUser.department) {
                 showToast('You can only view your assigned department', 'error');
                 return;
             }
@@ -680,7 +689,7 @@ async function loadHotelDepartmentsAndFilterTabs() {
             });
             
             // If user is an employee with a department, restrict to their department only
-            if (currentUser.role === 'employee' && currentUser.department) {
+            if (currentUser.role === 'employee' && currentUser.department && !isFrontDeskAccessUser()) {
                 currentDepartment = currentUser.department;
                 console.log(`Employee assigned to department: ${currentDepartment}`);
                 
@@ -732,7 +741,7 @@ async function loadHotelDepartmentsAndFilterTabs() {
  */
 function setupDefaultDashboard() {
     // If user is an employee with a department, set currentDepartment to their assigned department
-    if (currentUser.role === 'employee' && currentUser.department) {
+    if (currentUser.role === 'employee' && currentUser.department && !isFrontDeskAccessUser()) {
         currentDepartment = currentUser.department;
         console.log(`Employee assigned to department: ${currentDepartment}`);
         
