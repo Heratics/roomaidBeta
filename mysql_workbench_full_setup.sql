@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS fcm_tokens (
   INDEX idx_user_id (user_id),
   INDEX idx_username (username),
   INDEX idx_created_at (created_at),
-  UNIQUE KEY uniq_user_token (user_id, (fcm_token(255))),
+  UNIQUE KEY uniq_user_token (user_id, fcm_token(255)),
   CONSTRAINT fk_fcm_tokens_user
     FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
