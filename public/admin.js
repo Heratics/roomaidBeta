@@ -457,7 +457,7 @@ async function checkAuth() {
         if (currentUser.role !== 'admin') {
             showAlert('Access denied. Admin privileges required.', 'error');
             setTimeout(() => {
-                window.location.href = '/';
+                window.location.href = '/dashboard';
             }, 2000);
             return;
         }
@@ -1718,7 +1718,7 @@ function showAlert(message, type) {
  * Navigate from admin panel back to the main dashboard.
  */
 function goToDashboard() {
-    window.location.href = '/';
+    window.location.href = '/dashboard';
 }
 
 /**

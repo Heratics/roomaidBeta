@@ -2795,9 +2795,17 @@ app.get('/api/notifications/new-orders', authenticateToken, async (req, res) => 
 
 /**
  * GET /
- * Serve the main HTML file for the application
+ * Serve the public landing page
  */
 app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'home.html'));
+});
+
+/**
+ * GET /dashboard
+ * Serve the staff dashboard application
+ */
+app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

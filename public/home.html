@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f766e">
+    <title>RoomAid | Welcome</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/RoomAidTaskBoard.png">
+    <link rel="shortcut icon" type="image/png" href="/RoomAidTaskBoard.png">
+    <link rel="apple-touch-icon" href="/RoomAidTaskBoard.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans', 'Segoe UI', 'sans-serif']
+                    },
+                    boxShadow: {
+                        glow: '0 20px 60px rgba(15, 118, 110, 0.25)'
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        body {
+            background:
+                radial-gradient(circle at 15% 20%, rgba(13, 148, 136, 0.30), transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(59, 130, 246, 0.25), transparent 45%),
+                linear-gradient(135deg, #f8fafc 0%, #ecfeff 45%, #f0fdfa 100%);
+            min-height: 100vh;
+            transition: background 0.35s ease;
+        }
+
+        html.dark body {
+            background:
+                radial-gradient(circle at 20% 15%, rgba(20, 184, 166, 0.22), transparent 42%),
+                radial-gradient(circle at 80% 85%, rgba(37, 99, 235, 0.20), transparent 46%),
+                linear-gradient(135deg, #0b1220 0%, #0f172a 55%, #111827 100%);
+        }
+
+        .glass-card {
+            backdrop-filter: blur(8px);
+            background: rgba(255, 255, 255, 0.82);
+        }
+
+        html.dark .glass-card {
+            background: rgba(15, 23, 42, 0.72);
+        }
+
+        .logo-shell {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(240, 253, 250, 0.8));
+        }
+
+        html.dark .logo-shell {
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+        }
+    </style>
+</head>
+<body class="font-sans text-slate-800 antialiased dark:text-slate-100">
+    <main class="min-h-screen px-6 py-10 md:py-16">
+        <div class="mx-auto flex w-full max-w-6xl flex-col justify-between gap-12">
+            <header class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="logo-shell rounded-2xl border border-teal-200/60 p-2 shadow-lg dark:border-teal-500/30">
+                        <img src="/rubbletech-removebg-preview.png" alt="Rubble Tech Logo" class="h-12 w-12 object-contain" onerror="this.onerror=null; this.src='/RoomAidTaskBoard.png';">
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-teal-700 dark:text-teal-300">Rubble Tech</p>
+                        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">RoomAid</h1>
+                    </div>
+                </div>
+                <button id="themeToggle" type="button" class="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-teal-400 hover:text-teal-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
+                    Dark Mode
+                </button>
+            </header>
+
+            <section class="glass-card rounded-3xl border border-teal-100/70 p-6 md:p-8 dark:border-teal-500/25">
+                <h2 class="text-2xl font-extrabold text-slate-900 dark:text-white md:text-3xl">Smart Hotel Operations, One Unified Flow</h2>
+                <p class="mt-3 max-w-4xl text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
+                    RoomAid is a hotel operations platform built to connect guests, staff, and management in real time. Guests can create requests instantly, teams can pick up and complete work efficiently, and leaders get full visibility across departments.
+                </p>
+                <p class="mt-2 max-w-4xl text-sm leading-7 text-slate-600 dark:text-slate-300 md:text-base">
+                    Built by Rubble Tech, RoomAid focuses on speed, reliability, and a clean workflow experience for modern hospitality teams.
+                </p>
+            </section>
+
+            <section class="grid items-stretch gap-6 md:grid-cols-2">
+                <a href="/customer-login.html" class="group glass-card relative overflow-hidden rounded-3xl border border-emerald-200/60 p-7 shadow-glow transition duration-300 hover:-translate-y-1 hover:shadow-2xl dark:border-emerald-500/35">
+                    <div class="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-emerald-200/50 blur-2xl"></div>
+                    <p class="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">Guest Portal</p>
+                    <h2 class="mb-2 text-3xl font-extrabold text-slate-900 dark:text-white">I am a Customer</h2>
+                    <p class="mb-6 text-sm text-slate-600 dark:text-slate-300">Submit room requests, track updates, and view service progress in one place.</p>
+                    <span class="inline-flex items-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition group-hover:bg-emerald-700">Continue to Customer Login</span>
+                </a>
+
+                <a href="/employee-login.html" class="group glass-card relative overflow-hidden rounded-3xl border border-sky-200/60 p-7 shadow-glow transition duration-300 hover:-translate-y-1 hover:shadow-2xl dark:border-sky-500/35">
+                    <div class="absolute -left-10 -bottom-10 h-28 w-28 rounded-full bg-sky-200/60 blur-2xl"></div>
+                    <p class="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-sky-700 dark:text-sky-300">Staff Portal</p>
+                    <h2 class="mb-2 text-3xl font-extrabold text-slate-900 dark:text-white">I am an Employee</h2>
+                    <p class="mb-6 text-sm text-slate-600 dark:text-slate-300">Handle tasks, receive orders, and collaborate across departments quickly.</p>
+                    <span class="inline-flex items-center rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition group-hover:bg-sky-700">Continue to Employee Login</span>
+                </a>
+            </section>
+
+            <footer class="glass-card rounded-3xl border border-slate-200/60 p-6 dark:border-slate-700/60">
+                <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">&copy; 2026 Rubble Tech. All rights reserved.</p>
+                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">Website: <a class="font-semibold text-teal-700 hover:underline dark:text-teal-300" href="https://rubbletech.netlify.app/" target="_blank" rel="noopener noreferrer">rubbletech.netlify.app</a></p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-4 text-sm">
+                        <a class="font-semibold text-slate-700 hover:text-teal-700 hover:underline dark:text-slate-200 dark:hover:text-teal-300" href="https://www.facebook.com/rubbletech" target="_blank" rel="noopener noreferrer">Facebook</a>
+                        <a class="font-semibold text-slate-700 hover:text-teal-700 hover:underline dark:text-slate-200 dark:hover:text-teal-300" href="https://www.instagram.com/rubbletech" target="_blank" rel="noopener noreferrer">Instagram</a>
+                        <a class="font-semibold text-slate-700 hover:text-teal-700 hover:underline dark:text-slate-200 dark:hover:text-teal-300" href="https://www.linkedin.com/company/rubble-tech" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+                    </div>
+                </div>
+            </footer>
+        </div>
+    </main>
+
+    <script>
+        (function () {
+            const root = document.documentElement;
+            const button = document.getElementById('themeToggle');
+            const savedTheme = localStorage.getItem('homeTheme');
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+            function applyTheme(theme) {
+                if (theme === 'dark') {
+                    root.classList.add('dark');
+                    button.textContent = 'Light Mode';
+                } else {
+                    root.classList.remove('dark');
+                    button.textContent = 'Dark Mode';
+                }
+            }
+
+            const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+            applyTheme(initialTheme);
+
+            button.addEventListener('click', function () {
+                const nextTheme = root.classList.contains('dark') ? 'light' : 'dark';
+                localStorage.setItem('homeTheme', nextTheme);
+                applyTheme(nextTheme);
+            });
+        })();
+    </script>
+</body>
+</html>

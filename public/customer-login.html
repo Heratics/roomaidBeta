@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="RoomAid Customer Login">
+    <title>RoomAid - Customer Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="RoomAidTaskBoard.png">
+    <link rel="shortcut icon" type="image/png" href="RoomAidTaskBoard.png">
+    <link rel="apple-touch-icon" href="RoomAidTaskBoard.png">
+</head>
+<body>
+    <button id="themeToggle" class="theme-toggle" title="Toggle dark mode">🌙</button>
+
+    <div id="app">
+        <div id="loginScreen" class="screen">
+            <div class="login-container">
+                <div class="login-header">
+                    <div class="brand-container">
+                        <img src="rubbletech-removebg-preview.png" alt="RoomAid Logo" class="roomaid-logo-small">
+                        <div class="brand-text">
+                            <h1>RoomAid</h1>
+                            <p>Customer Portal</p>
+                        </div>
+                    </div>
+                    <p>Sign in to submit and track room service requests.</p>
+                </div>
+
+                <form id="loginForm" class="login-form">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <div class="password-container">
+                            <input type="password" id="password" name="password" required>
+                            <button type="button" id="togglePassword" class="password-toggle">🙈</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="hotelCode">Hotel Code</label>
+                        <input type="text" id="hotelCode" name="hotelCode" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Sign In as Customer</button>
+                </form>
+
+                <div id="loginError" class="error-message" style="display: none;"></div>
+                <p style="text-align:center; margin-top:14px;">
+                    <a href="/" style="color: var(--brand-primary); font-weight:600;">Back to Home</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="login.js"></script>
+</body>
+</html>
