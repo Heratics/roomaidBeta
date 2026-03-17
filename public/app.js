@@ -627,8 +627,8 @@ async function handleLogout() {
     localStorage.removeItem('user');
     localStorage.removeItem('fcmToken');
     
-    // Redirect to login page
-    window.location.href = 'login.html';
+    // Redirect to home page
+    window.location.href = '/';
 }
 
 // Show dashboard

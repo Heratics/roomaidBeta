@@ -1764,8 +1764,8 @@ async function logout() {
         localStorage.removeItem('user');
         localStorage.removeItem('fcmToken');
         
-        // Redirect to login
-        window.location.href = '/login.html';
+        // Redirect to home page
+        window.location.href = '/';
     }
 }
 

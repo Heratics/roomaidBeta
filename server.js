@@ -56,7 +56,7 @@ app.use((req, res, next) => {
 });
 
 // Serve static assets
-app.use(express.static('public'));
+app.use(express.static('public', { index: false }));
 
 // Initialize FCM routes
 fcmRoutes.createFCMRoutes(app);

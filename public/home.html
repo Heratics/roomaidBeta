@@ -129,6 +129,24 @@
             const savedTheme = localStorage.getItem('homeTheme');
             const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
+            const savedToken = localStorage.getItem('authToken');
+            const savedUserRaw = localStorage.getItem('user');
+
+            if (savedToken && savedUserRaw) {
+                try {
+                    const savedUser = JSON.parse(savedUserRaw);
+                    if (savedUser && savedUser.role === 'customer') {
+                        window.location.replace('/customer.html');
+                        return;
+                    }
+                    window.location.replace('/dashboard');
+                    return;
+                } catch (error) {
+                    localStorage.removeItem('authToken');
+                    localStorage.removeItem('user');
+                }
+            }
+
             function applyTheme(theme) {
                 if (theme === 'dark') {
                     root.classList.add('dark');

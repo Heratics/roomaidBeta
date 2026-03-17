@@ -429,7 +429,7 @@ async function handleLogout() {
         }
     } catch (e) { /* ignore */ }
     clearSession();
-    renderLogin();
+    window.location.href = '/';
 }
 
 function clearSession() {
