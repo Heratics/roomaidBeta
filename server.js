@@ -2877,7 +2877,9 @@ app.get('/api/customer/orders', authenticateToken, async (req, res) => {
     const baseFields = `
       o.id, o.order_name, o.order_notes, o.created_at, o.completed_at, o.deleted_at,
       o.on_hold, o.hold_info, o.hold_until, o.hold_reason, o.hotel_code,
-      COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username, NULL) as receiverName
+      o.sent_by, o.assigned_to,
+      COALESCE(NULLIF(TRIM(CONCAT(COALESCE(assignee.first_name, ''), ' ', COALESCE(assignee.last_name, ''))), ''), assignee.username, NULL) as receiverName,
+      assignee.username as receiverUsername
     `;
 
     const rows = await db.query(`

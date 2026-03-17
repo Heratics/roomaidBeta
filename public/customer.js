@@ -202,6 +202,8 @@ function renderOrders(orders) {
         const statusInfo  = getStatusInfo(o);
         const canCancel   = !o.completed_at && !o.on_hold;
         const createdDate = formatDate(o.created_at);
+        const assignedStaffName = o.receiverName || o.receiverUsername || '';
+        const isAssignedToStaff = Boolean(o.assigned_to) && String(o.assigned_to) !== String(o.sent_by);
 
         return `
             <div class="order-card">
@@ -215,7 +217,7 @@ function renderOrders(orders) {
                 ${o.order_notes ? `<div class="order-card-notes">${escapeHtml(o.order_notes)}</div>` : ''}
                 <div class="order-card-meta">
                     <span>📅 ${createdDate}</span>
-                    ${o.receiverName ? `<span>👤 Assigned: ${escapeHtml(o.receiverName)}</span>` : ''}
+                    ${isAssignedToStaff && assignedStaffName ? `<span>👤 Assigned: ${escapeHtml(assignedStaffName)}</span>` : ''}
                     ${o.on_hold && o.hold_info ? `<span>⏸️ ${escapeHtml(o.hold_info)}</span>` : ''}
                     ${canCancel ? `<button class="cancel-order-btn" data-id="${o.id}">✕ Cancel</button>` : ''}
                 </div>
@@ -232,7 +234,9 @@ function renderOrders(orders) {
 function getStatusInfo(o) {
     if (o.completed_at) return { cls: 'status-completed', icon: '✅', label: 'Completed' };
     if (o.on_hold)      return { cls: 'status-on-hold',   icon: '⏸️', label: 'On Hold'   };
-    if (o.assigned_to)  return { cls: 'status-received',  icon: '🔵', label: 'In Progress' };
+    if (o.assigned_to && String(o.assigned_to) !== String(o.sent_by)) {
+        return { cls: 'status-received', icon: '🔵', label: 'Being Worked On' };
+    }
     return                     { cls: 'status-open',      icon: '🟡', label: 'Pending'   };
 }
 
