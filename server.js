@@ -39,14 +39,21 @@ const fcmRoutes = require('./routes/fcm');
 const app = express();
 const PORT = config.server.port || process.env.PORT || 3000;
 
+app.disable('x-powered-by');
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'roomaid-session-secret',
   resave: false,
   saveUninitialized: false
 }));
+
+app.use((req, res, next) => {
+  const headers = validation.getSecurityHeaders();
+  Object.entries(headers).forEach(([key, value]) => res.setHeader(key, value));
+  next();
+});
 
 // Serve static assets
 app.use(express.static('public'));
@@ -64,19 +71,25 @@ fcmRoutes.createFCMRoutes(app);
  * @returns {string} Database table name
  */
 function getDepartmentTableName(department) {
-  const deptLower = department.toLowerCase();
-  switch (deptLower) {
-    case 'engineering':
-      return 'engineering_orders';
-    case 'housekeeping':
-      return 'housekeeping_orders';
-    case 'laundry':
-      return 'laundry_orders';
-    case 'room service':
-      return 'roomservice_orders';
-    default:
-      return 'engineering_orders'; // Default fallback
+  if (!department || typeof department !== 'string') return null;
+
+  const departmentTableMap = {
+    engineering: 'engineering_orders',
+    housekeeping: 'housekeeping_orders',
+    laundry: 'laundry_orders',
+    'room service': 'roomservice_orders',
+    roomservice: 'roomservice_orders'
+  };
+
+  const normalizedDepartment = department.toLowerCase().trim();
+  return departmentTableMap[normalizedDepartment] || null;
+}
+
+function blockDebugRoutesInProduction(req, res, next) {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ error: 'Not found' });
   }
+  next();
 }
 
 /**
@@ -232,8 +245,16 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Department is required' });
     }
 
+    const departmentValidation = validation.validateDepartment(department);
+    if (!departmentValidation.isValid) {
+      return res.status(400).json({ error: departmentValidation.error });
+    }
+
     // Build SQL query to fetch orders from the appropriate department table
-    const tableName = getDepartmentTableName(department);
+    const tableName = getDepartmentTableName(departmentValidation.value);
+    if (!tableName) {
+      return res.status(400).json({ error: 'Invalid department' });
+    }
     let query = `
       SELECT o.*, 
              COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
@@ -856,8 +877,26 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Order name and department are required' });
     }
 
+    const departmentValidation = validation.validateDepartment(department);
+    if (!departmentValidation.isValid) {
+      return res.status(400).json({ error: departmentValidation.error });
+    }
+
+    const sanitizedOrderName = validation.sanitizeString(order_name);
+    if (!sanitizedOrderName) {
+      return res.status(400).json({ error: 'Order name is required' });
+    }
+
+    const notesValidation = validation.validateNotes(order_notes);
+    if (!notesValidation.isValid) {
+      return res.status(400).json({ error: notesValidation.error });
+    }
+
     // Determine table name based on department
-    const tableName = getDepartmentTableName(department);
+    const tableName = getDepartmentTableName(departmentValidation.value);
+    if (!tableName) {
+      return res.status(400).json({ error: 'Invalid department' });
+    }
 
     // Check if order exists and belongs to user's hotel
     const orderCheck = await db.query(`SELECT * FROM ${tableName} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
@@ -873,7 +912,7 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
       UPDATE ${tableName} 
       SET order_name = ?, order_notes = ?
       WHERE id = ?
-    `, [order_name, order_notes || null, id]);
+    `, [sanitizedOrderName, notesValidation.value || null, id]);
 
     // Get updated order data
     const updatedOrder = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
@@ -884,11 +923,11 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
       : user.username;
     
     const changes = [];
-    if (oldOrderData.order_name !== order_name) {
-      changes.push(`Order name: "${oldOrderData.order_name}" → "${order_name}"`);
+    if (oldOrderData.order_name !== sanitizedOrderName) {
+      changes.push(`Order name: "${oldOrderData.order_name}" → "${sanitizedOrderName}"`);
     }
-    if (oldOrderData.order_notes !== (order_notes || null)) {
-      changes.push(`Notes: "${oldOrderData.order_notes || ''}" → "${order_notes || ''}"`);
+    if (oldOrderData.order_notes !== (notesValidation.value || null)) {
+      changes.push(`Notes: "${oldOrderData.order_notes || ''}" → "${notesValidation.value || ''}"`);
     }
 
     await db.query(`
@@ -932,8 +971,16 @@ app.get('/api/orders/deleted', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Department is required' });
     }
 
+    const departmentValidation = validation.validateDepartment(department);
+    if (!departmentValidation.isValid) {
+      return res.status(400).json({ error: departmentValidation.error });
+    }
+
     // Build SQL query to fetch soft-deleted orders
-    const tableName = department.toLowerCase() === 'engineering' ? 'engineering_orders' : 'housekeeping_orders';
+    const tableName = getDepartmentTableName(departmentValidation.value);
+    if (!tableName) {
+      return res.status(400).json({ error: 'Invalid department' });
+    }
     let query = `
       SELECT o.*, 
              COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
@@ -1032,8 +1079,26 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Order name and department are required' });
     }
 
+    const departmentValidation = validation.validateDepartment(department);
+    if (!departmentValidation.isValid) {
+      return res.status(400).json({ error: departmentValidation.error });
+    }
+
+    const sanitizedOrderName = validation.sanitizeString(order_name);
+    if (!sanitizedOrderName) {
+      return res.status(400).json({ error: 'Order name is required' });
+    }
+
+    const notesValidation = validation.validateNotes(order_notes);
+    if (!notesValidation.isValid) {
+      return res.status(400).json({ error: notesValidation.error });
+    }
+
     // Determine table name based on department
-    const tableName = department.toLowerCase() === 'engineering' ? 'engineering_orders' : 'housekeeping_orders';
+    const tableName = getDepartmentTableName(departmentValidation.value);
+    if (!tableName) {
+      return res.status(400).json({ error: 'Invalid department' });
+    }
 
     // Check if order exists and belongs to user's hotel
     const orderCheck = await db.query(`SELECT * FROM ${tableName} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, user.hotel_code || user.hotelCode]);
@@ -1049,7 +1114,7 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
       UPDATE ${tableName} 
       SET order_name = ?, order_notes = ?
       WHERE id = ?
-    `, [order_name, order_notes || null, id]);
+    `, [sanitizedOrderName, notesValidation.value || null, id]);
 
     // Get updated order data
     const updatedOrder = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
@@ -1060,11 +1125,11 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
       : user.username;
     
     const changes = [];
-    if (oldOrderData.order_name !== order_name) {
-      changes.push(`Order name: "${oldOrderData.order_name}" → "${order_name}"`);
+    if (oldOrderData.order_name !== sanitizedOrderName) {
+      changes.push(`Order name: "${oldOrderData.order_name}" → "${sanitizedOrderName}"`);
     }
-    if (oldOrderData.order_notes !== (order_notes || null)) {
-      changes.push(`Notes: "${oldOrderData.order_notes || ''}" → "${order_notes || ''}"`);
+    if (oldOrderData.order_notes !== (notesValidation.value || null)) {
+      changes.push(`Notes: "${oldOrderData.order_notes || ''}" → "${notesValidation.value || ''}"`);
     }
 
     await db.query(`
@@ -1072,7 +1137,7 @@ app.put('/api/orders/:id', authenticateToken, async (req, res) => {
       VALUES (?, ?, 'edited', ?, ?, ?, ?, ?, ?)
     `, [
       id,
-      department.toLowerCase() === 'engineering' ? 'engineering' : 'housekeeping',
+      getOrderTypeFromTableName(tableName),
       user.id,
       userFullName,
       user.hotel_code || user.hotelCode,
@@ -1104,6 +1169,18 @@ app.get('/api/logs', authenticateToken, async (req, res) => {
     }
 
     const { type, date } = req.query; // 'deleted' or 'edited', and optional date filter
+    const validLogTypes = ['deleted', 'edited', 'restored', 'hold'];
+
+    if (type && !validLogTypes.includes(type)) {
+      return res.status(400).json({ error: 'Invalid log type' });
+    }
+
+    if (date) {
+      const dateValidation = validation.validateDate(date);
+      if (!dateValidation.isValid) {
+        return res.status(400).json({ error: dateValidation.error });
+      }
+    }
 
     let query = `
       SELECT l.*,
@@ -2322,7 +2399,7 @@ app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
  * Create sample data for development/testing
  * Creates test hotels, users, and orders
  */
-app.post('/api/seed', async (req, res) => {
+app.post('/api/seed', blockDebugRoutesInProduction, async (req, res) => {
   try {
     // Create sample hotels if they don't exist
     const existingHotel1 = await db.query(`SELECT id FROM hotels WHERE code = ?`, ['HOTEL001']);
@@ -2826,7 +2903,7 @@ app.get('/admin', (req, res) => {
  * Handles startup errors gracefully
  */
 // Debug endpoint to check database data
-app.get('/api/debug/data', async (req, res) => {
+app.get('/api/debug/data', blockDebugRoutesInProduction, async (req, res) => {
   try {
     const users = await db.query('SELECT COUNT(*) as userCount FROM users');
     const hotels = await db.query('SELECT COUNT(*) as hotelCount FROM hotels');
@@ -2844,7 +2921,7 @@ app.get('/api/debug/data', async (req, res) => {
 });
 
 // Debug endpoint to test user creation
-app.post('/api/debug/create-user', async (req, res) => {
+app.post('/api/debug/create-user', blockDebugRoutesInProduction, async (req, res) => {
   try {
     const { username, password, hotelCode, role } = req.body;
 

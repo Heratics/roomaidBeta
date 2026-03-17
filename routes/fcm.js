@@ -114,14 +114,22 @@ function createFCMRoutes(app) {
         try {
             const { userIds, title, body, data } = req.body;
 
-            if (!userIds || userIds.length === 0) {
+            if (!Array.isArray(userIds) || userIds.length === 0) {
                 return res.status(400).json({ error: 'User IDs are required' });
+            }
+
+            const normalizedUserIds = userIds
+                .map(id => Number(id))
+                .filter(id => Number.isInteger(id) && id > 0);
+
+            if (normalizedUserIds.length === 0) {
+                return res.status(400).json({ error: 'User IDs must be positive integers' });
             }
 
             // Get FCM tokens for the specified users
             const tokens = await db.query(
-                `SELECT fcm_token FROM fcm_tokens WHERE user_id IN (${userIds.map(() => '?').join(',')})`,
-                userIds
+                `SELECT fcm_token FROM fcm_tokens WHERE user_id IN (${normalizedUserIds.map(() => '?').join(',')})`,
+                normalizedUserIds
             );
 
             if (!tokens || tokens.length === 0) {
@@ -259,10 +267,22 @@ function createFCMRoutes(app) {
  */
 async function sendFCMNotification(userIds, notification) {
     try {
+        if (!Array.isArray(userIds) || userIds.length === 0) {
+            return { success: true, sent: 0 };
+        }
+
+        const normalizedUserIds = userIds
+            .map(id => Number(id))
+            .filter(id => Number.isInteger(id) && id > 0);
+
+        if (normalizedUserIds.length === 0) {
+            return { success: true, sent: 0 };
+        }
+
         // Get FCM tokens for users
         const tokens = await db.query(
-            `SELECT fcm_token FROM fcm_tokens WHERE user_id IN (${userIds.map(() => '?').join(',')})`,
-            userIds
+            `SELECT fcm_token FROM fcm_tokens WHERE user_id IN (${normalizedUserIds.map(() => '?').join(',')})`,
+            normalizedUserIds
         );
 
         if (!tokens || tokens.length === 0) {
