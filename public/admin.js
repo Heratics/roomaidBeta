@@ -195,6 +195,7 @@ function hideLoginForm() {
             <div class="admin-nav">
                 <button class="nav-btn active" onclick="showSection('users')">👥 Manage Users</button>
                 <button class="nav-btn" onclick="showSection('hotels')">🏨 Manage Hotels</button>
+                    <button class="nav-btn" onclick="goToDashboard()">⬅️ Back to Dashboard</button>
             </div>
             
             <!-- Alert Messages -->
@@ -1552,6 +1553,13 @@ function showAlert(message, type) {
     setTimeout(() => {
         alertDiv.style.display = 'none';
     }, 5000);
+}
+
+/**
+ * Navigate from admin panel back to the main dashboard.
+ */
+function goToDashboard() {
+    window.location.href = '/';
 }
 
 /**
