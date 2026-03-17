@@ -268,6 +268,10 @@
                                 <span class="settings-item-icon">🧭</span>
                                 <span>Manager Dashboard</span>
                             </button>
+                            <button class="settings-item" id="adminMenuItem" onclick="openAdminPanel()" style="display: none;">
+                                <span class="settings-item-icon">🛠️</span>
+                                <span>Admin Panel</span>
+                            </button>
                             <button class="settings-item" onclick="toggleDarkMode()">
                                 <span class="settings-item-icon" id="themeIcon">🌙</span>
                                 <span id="themeText">Dark Mode</span>
@@ -303,6 +307,7 @@
                             <label for="dateFilter">📅 Filter by Date:</label>
                             <input type="date" id="dateFilter" name="dateFilter">
                             <button id="clearDateFilter" class="btn btn-secondary">Clear</button>
+                            <button id="refreshOrdersBtn" class="btn btn-secondary" type="button" title="Refresh orders" aria-label="Refresh orders">🔄</button>
                         </div>
                     </div>
                 </div>

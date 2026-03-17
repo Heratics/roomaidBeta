@@ -1,16 +1,16 @@
 module.exports = {
   // Database Configuration
   db: {
-    host: process.env.DB_SERVER || 'roomaid-962-room-aid-962.e.aivencloud.com',
+    host: process.env.DB_SERVER || 'roomaid26database-rb-roomaid26.d.aivencloud.com',
     user: process.env.DB_USER || 'avnadmin',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'room',
-    port: parseInt(process.env.DB_PORT) || 24815,
+    password: process.env.DB_PASSWORD || 'AVNS_PP4bZhJVOxOkSxYHari',
+    database: process.env.DB_NAME || 'RoomAid',
+    port: parseInt(process.env.DB_PORT) || 23847,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
     ssl: process.env.DB_ENCRYPT === 'true' ? {
-      rejectUnauthorized: process.env.DB_TRUST_CERT !== 'true'
+      rejectUnauthorized: process.env.DB_TRUST_CERT === 'false'
     } : null
   },
 

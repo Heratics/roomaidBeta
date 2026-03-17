@@ -26,6 +26,7 @@ const hotelName = document.getElementById('hotelName');
 const currentUserSpan = document.getElementById('currentUser');
 const dateFilter = document.getElementById('dateFilter');
 const clearDateFilter = document.getElementById('clearDateFilter');
+const refreshOrdersBtn = document.getElementById('refreshOrdersBtn');
 const orderNotes = document.getElementById('orderNotes');
 const currentLanguage = document.getElementById('currentLanguage');
 
@@ -65,11 +66,21 @@ let orderToHold = null;
 let holdOrderDay = null; // 'same-day' or 'next-day'
 let holdNextDayTime = null; // time for next-day holds in HH:MM format
 
+function isFrontDeskAccessUser() {
+    if (!currentUser) return false;
+    const normalizedDepartment = String(currentUser.department || '')
+        .toLowerCase()
+        .replace(/[\s_]+/g, '');
+
+    return currentUser.role === 'front_desk' || (currentUser.role === 'employee' && normalizedDepartment === 'frontdesk');
+}
+
 // Logs modal elements
 const logsModal = document.getElementById('logsModal');
 const closeLogsModalBtn = document.getElementById('closeLogsModalBtn');
 const logsMenuItem = document.getElementById('logsMenuItem');
 const managerMenuItem = document.getElementById('managerMenuItem');
+const adminMenuItem = document.getElementById('adminMenuItem');
 
 // Edit order modal elements
 const editOrderModal = document.getElementById('editOrderModal');
@@ -131,6 +142,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (managerMenuItem && isPrivileged) {
                 managerMenuItem.style.display = 'flex';
             }
+            if (adminMenuItem && currentUser.role === 'admin') {
+                adminMenuItem.style.display = 'flex';
+            }
 
             initializePushNotifications();
             showDashboard();
@@ -164,7 +178,7 @@ function setupEventListeners() {
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             // For employees, prevent switching to different departments
-            if (currentUser.role === 'employee' && btn.dataset.department !== currentUser.department) {
+            if (currentUser.role === 'employee' && !isFrontDeskAccessUser() && btn.dataset.department !== currentUser.department) {
                 showToast('You can only view your assigned department', 'error');
                 return;
             }
@@ -192,6 +206,12 @@ function setupEventListeners() {
     
     if (clearDateFilter) {
         clearDateFilter.addEventListener('click', clearDateFilterHandler);
+    }
+
+    if (refreshOrdersBtn) {
+        refreshOrdersBtn.addEventListener('click', () => {
+            loadOrders();
+        });
     }
     
     // Delete confirmation modal
@@ -680,7 +700,7 @@ async function loadHotelDepartmentsAndFilterTabs() {
             });
             
             // If user is an employee with a department, restrict to their department only
-            if (currentUser.role === 'employee' && currentUser.department) {
+            if (currentUser.role === 'employee' && currentUser.department && !isFrontDeskAccessUser()) {
                 currentDepartment = currentUser.department;
                 console.log(`Employee assigned to department: ${currentDepartment}`);
                 
@@ -731,7 +751,7 @@ async function loadHotelDepartmentsAndFilterTabs() {
  */
 function setupDefaultDashboard() {
     // If user is an employee with a department, set currentDepartment to their assigned department
-    if (currentUser.role === 'employee' && currentUser.department) {
+    if (currentUser.role === 'employee' && currentUser.department && !isFrontDeskAccessUser()) {
         currentDepartment = currentUser.department;
         console.log(`Employee assigned to department: ${currentDepartment}`);
         
@@ -1885,7 +1905,10 @@ async function filterAddOrderDepartments() {
 
         if (response.ok) {
             const result = await response.json();
-            const allowedDepartments = result.departments || ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+            const allowedDepartments = (result.departments || ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'])
+                .filter(dept => String(dept).toLowerCase().replace(/[\s_]+/g, '') !== 'frontdesk');
+            const fallbackDepartments = ['Engineering', 'Housekeeping', 'Laundry', 'Room Service'];
+            const selectableDepartments = allowedDepartments.length > 0 ? allowedDepartments : fallbackDepartments;
             
             // Update the department dropdown
             const orderDepartmentSelect = document.getElementById('orderDepartment');
@@ -1893,7 +1916,7 @@ async function filterAddOrderDepartments() {
                 const currentValue = orderDepartmentSelect.value;
                 orderDepartmentSelect.innerHTML = '';
                 
-                allowedDepartments.forEach(dept => {
+                selectableDepartments.forEach(dept => {
                     const option = document.createElement('option');
                     option.value = dept;
                     option.textContent = dept;
@@ -1901,10 +1924,10 @@ async function filterAddOrderDepartments() {
                 });
 
                 // Set to current department if available in allowed departments
-                if (currentDepartment && allowedDepartments.includes(currentDepartment)) {
+                if (currentDepartment && selectableDepartments.includes(currentDepartment)) {
                     orderDepartmentSelect.value = currentDepartment;
-                } else if (allowedDepartments.length > 0) {
-                    orderDepartmentSelect.value = allowedDepartments[0];
+                } else if (selectableDepartments.length > 0) {
+                    orderDepartmentSelect.value = selectableDepartments[0];
                 }
             }
         }
@@ -2250,6 +2273,7 @@ function updateUILanguage(language) {
             logout: 'Logout',
             filterByDate: 'Filter by Date',
             clear: 'Clear',
+            refresh: 'Refresh orders',
             engineering: 'Engineering',
             housekeeping: 'Housekeeping',
             laundry: 'Laundry',
@@ -2264,6 +2288,7 @@ function updateUILanguage(language) {
             logout: 'تسجيل خروج',
             filterByDate: 'تصفية حسب التاريخ',
             clear: 'مسح',
+            refresh: 'تحديث الطلبات',
             engineering: 'هندسة',
             housekeeping: 'خدمات الغرف',
             laundry: 'غسيل',
@@ -2280,6 +2305,11 @@ function updateUILanguage(language) {
     if (cancelOrderBtn) cancelOrderBtn.textContent = texts.cancel;
     // Logout is now in settings menu, no need to update here
     if (clearDateFilter) clearDateFilter.textContent = texts.clear;
+    if (refreshOrdersBtn) {
+        refreshOrdersBtn.textContent = '🔄';
+        refreshOrdersBtn.title = texts.refresh;
+        refreshOrdersBtn.setAttribute('aria-label', texts.refresh);
+    }
     
     // Update labels
     const roomNumberLabel = document.querySelector('label[for="orderRoomNumber"]');
@@ -2627,4 +2657,21 @@ function processAllArabicText() {
     notesElements.forEach(element => {
         processArabicText(element);
     });
+}
+
+function openAdminPanel() {
+    if (!currentUser || currentUser.role !== 'admin') {
+        showToast('Admin access required', 'error');
+        return;
+    }
+
+    try {
+        const win = window.open('admin.html', '_blank', 'noopener,noreferrer');
+        if (win && typeof win.focus === 'function') {
+            win.focus();
+        }
+    } catch (e) {
+        // Fallback to same-tab navigation if popup blocked
+        window.location.href = 'admin.html';
+    }
 }
