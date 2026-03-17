@@ -1,0 +1,32 @@
+body {
+    background:
+        radial-gradient(circle at 15% 20%, rgba(13, 148, 136, 0.30), transparent 40%),
+        radial-gradient(circle at 85% 80%, rgba(59, 130, 246, 0.25), transparent 45%),
+        linear-gradient(135deg, #f8fafc 0%, #ecfeff 45%, #f0fdfa 100%);
+    min-height: 100vh;
+    transition: background 0.35s ease;
+}
+
+html.dark body {
+    background:
+        radial-gradient(circle at 20% 15%, rgba(20, 184, 166, 0.22), transparent 42%),
+        radial-gradient(circle at 80% 85%, rgba(37, 99, 235, 0.20), transparent 46%),
+        linear-gradient(135deg, #0b1220 0%, #0f172a 55%, #111827 100%);
+}
+
+.glass-card {
+    backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.82);
+}
+
+html.dark .glass-card {
+    background: rgba(15, 23, 42, 0.72);
+}
+
+.logo-shell {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(240, 253, 250, 0.8));
+}
+
+html.dark .logo-shell {
+    background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+}
