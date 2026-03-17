@@ -547,6 +547,7 @@
         
         <div class="admin-nav">
             <button class="nav-btn active" onclick="showSection('users')">👥 Manage Users</button>
+            <button class="nav-btn" onclick="showSection('rooms')">🛏️ Room Accounts</button>
             <button class="nav-btn" onclick="showSection('hotels')">🏨 Manage Hotels</button>
             <button class="nav-btn" onclick="goToDashboard()">⬅️ Back to Dashboard</button>
         </div>
@@ -661,6 +662,35 @@
                     </select>
                 </div>
             </div>
+        </div>
+
+        <!-- Room Accounts Section -->
+        <div id="rooms-section" class="admin-section">
+            <h2>🛏️ Room Accounts</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                <h3 style="margin: 0;">Customer / Room Users</h3>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <select id="room-hotel-filter" onchange="applyRoomHotelFilter()" style="padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 14px; min-width: 200px;">
+                        <option value="">All Hotels</option>
+                    </select>
+                    <button onclick="loadRoomAccounts(true)" style="padding: 8px 12px; background: var(--brand-secondary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+            <div id="rooms-loading" class="loading">Loading room accounts...</div>
+            <table id="rooms-table" class="users-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Hotel</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="rooms-tbody"></tbody>
+            </table>
         </div>
         
         <!-- Hotels Management Section -->

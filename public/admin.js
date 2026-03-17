@@ -17,6 +17,7 @@ let currentPage = 1;
 let pageSize = 25;
 let totalUsers = 0;
 let totalPages = 0;
+let roomAccountsCache = [];
 
 // Settings menu state
 let settingsMenuOpen = false;
@@ -61,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
                 loadUsers();
                 loadHotels();
+                loadRoomAccounts();
                 // Auto-refresh disabled - users must manually click refresh button
             }, 100);
         } else {
@@ -194,6 +196,7 @@ function hideLoginForm() {
             
             <div class="admin-nav">
                 <button class="nav-btn active" onclick="showSection('users')">👥 Manage Users</button>
+                <button class="nav-btn" onclick="showSection('rooms')">🛏️ Room Accounts</button>
                 <button class="nav-btn" onclick="showSection('hotels')">🏨 Manage Hotels</button>
                     <button class="nav-btn" onclick="goToDashboard()">⬅️ Back to Dashboard</button>
             </div>
@@ -270,6 +273,35 @@ function hideLoginForm() {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- Room Accounts Section -->
+            <div id="rooms-section" class="admin-section">
+                <h2>🛏️ Room Accounts</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                    <h3 style="margin: 0;">Customer / Room Users</h3>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <select id="room-hotel-filter" onchange="applyRoomHotelFilter()" style="padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); font-size: 14px; min-width: 200px;">
+                            <option value="">All Hotels</option>
+                        </select>
+                        <button onclick="loadRoomAccounts(true)" style="padding: 8px 12px; background: var(--brand-secondary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; gap: 5px;">
+                            🔄 Refresh
+                        </button>
+                    </div>
+                </div>
+                <div id="rooms-loading" class="loading">Loading room accounts...</div>
+                <table id="rooms-table" class="users-table" style="display: none;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Hotel</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rooms-tbody"></tbody>
+                </table>
             </div>
             
             <!-- Hotels Management Section -->
@@ -372,6 +404,7 @@ async function handleAdminLogin(event) {
                 setTimeout(() => {
                     loadUsers();
                     loadHotels();
+                    loadRoomAccounts();
                     // Auto-refresh disabled - users must click refresh button
                 }, 100);
             }, 1000);
@@ -764,7 +797,9 @@ function displayUsers(users, searchTerm = '') {
     // Clear existing rows
     if (tbody) tbody.innerHTML = '';
     
-    if (!users || users.length === 0) {
+    const normalUsers = (users || []).filter(user => user.role !== 'customer');
+
+    if (!normalUsers || normalUsers.length === 0) {
         const noUsersMessage = searchTerm ? 
             `No users found matching "${searchTerm}"` : 
             'No users found';
@@ -784,7 +819,7 @@ function displayUsers(users, searchTerm = '') {
     }
     
     // Add user rows with enhanced information
-    users.forEach(user => {
+    normalUsers.forEach(user => {
         const row = document.createElement('tr');
         const fullName = user.first_name && user.last_name ? 
             `${user.first_name} ${user.last_name}` : 
@@ -813,6 +848,123 @@ function displayUsers(users, searchTerm = '') {
         `;
         if (tbody) tbody.appendChild(row);
     });
+}
+
+/**
+ * Load room accounts (customer users) and display them in their own section.
+ */
+async function loadRoomAccounts(refresh = false) {
+    try {
+        showRoomLoadingState(true);
+
+        const response = await fetch('/api/admin/users?page=1&limit=1000', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to load room accounts: ${response.status}`);
+        }
+
+        const data = await response.json();
+        window.allUsers = data.users || [];
+        roomAccountsCache = (data.users || []).filter(user => user.role === 'customer');
+        applyRoomHotelFilter();
+
+        if (refresh) {
+            showAlert('Room accounts refreshed successfully!', 'success');
+        }
+    } catch (error) {
+        console.error('Error loading room accounts:', error);
+        showAlert('Error loading room accounts. Please try again.', 'error');
+        displayRoomAccounts([]);
+    } finally {
+        showRoomLoadingState(false);
+    }
+}
+
+function showRoomLoadingState(show) {
+    const loadingDiv = document.getElementById('rooms-loading');
+    const table = document.getElementById('rooms-table');
+
+    if (show) {
+        if (loadingDiv) loadingDiv.style.display = 'block';
+        if (table) table.style.display = 'none';
+    } else {
+        if (loadingDiv) loadingDiv.style.display = 'none';
+    }
+}
+
+function applyRoomHotelFilter() {
+    const hotelFilter = document.getElementById('room-hotel-filter');
+    const selectedHotelCode = hotelFilter ? hotelFilter.value : '';
+
+    const filtered = selectedHotelCode
+        ? roomAccountsCache.filter(user => String(user.hotel_code || '') === String(selectedHotelCode))
+        : roomAccountsCache;
+
+    displayRoomAccounts(filtered);
+}
+
+function displayRoomAccounts(accounts) {
+    const table = document.getElementById('rooms-table');
+    const tbody = document.getElementById('rooms-tbody');
+
+    if (table) table.style.display = 'table';
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    if (!accounts || accounts.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-secondary); padding: 20px;">
+                    No room accounts found for this filter.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    accounts.forEach(user => {
+        const row = document.createElement('tr');
+        const fullName = user.first_name && user.last_name
+            ? `${user.first_name} ${user.last_name}`
+            : (user.username || 'N/A');
+
+        row.innerHTML = `
+            <td>${user.id}</td>
+            <td>${escapeHtml(fullName)}</td>
+            <td>${escapeHtml(user.username || '')}</td>
+            <td>${escapeHtml(user.hotelName || user.hotel_code || '')}</td>
+            <td>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="btn-danger" onclick="deleteUser(${user.id})" style="font-size: 12px; padding: 6px 12px;">Delete</button>
+                    <button onclick="editUser(${user.id})" style="font-size: 12px; padding: 6px 12px; background: var(--brand-primary); color: white; border: none; border-radius: 4px; cursor: pointer;">Edit</button>
+                </div>
+            </td>
+        `;
+
+        tbody.appendChild(row);
+    });
+}
+
+function populateRoomHotelFilter(hotels) {
+    const filter = document.getElementById('room-hotel-filter');
+    if (!filter) return;
+
+    const currentValue = filter.value;
+    const options = ['<option value="">All Hotels</option>'];
+
+    (hotels || []).forEach(hotel => {
+        options.push(`<option value="${escapeHtml(hotel.code)}">${escapeHtml(hotel.name)} (${escapeHtml(hotel.code)})</option>`);
+    });
+
+    filter.innerHTML = options.join('');
+    filter.value = currentValue || '';
 }
 
 /**
@@ -1022,6 +1174,7 @@ async function handleEditUserSubmit(event) {
             showAlert('User updated successfully!', 'success');
             closeEditUserModal();
             loadUsers(); // Refresh users list
+            loadRoomAccounts(); // Keep room accounts section in sync
         } else {
             showAlert(result.error || 'Failed to update user', 'error');
         }
@@ -1118,6 +1271,7 @@ async function performDeleteUser(userId, override) {
         if (response.ok) {
             showAlert('User deleted successfully!', 'success');
             loadUsers(); // Refresh users list
+            loadRoomAccounts(); // Keep room accounts section in sync
         } else {
             showAlert(result.error || 'Failed to delete user', 'error');
         }
@@ -1171,6 +1325,8 @@ function showSection(sectionName) {
     // Load data for specific sections
     if (sectionName === 'users') {
         loadUsers();
+    } else if (sectionName === 'rooms') {
+        loadRoomAccounts();
     } else if (sectionName === 'hotels') {
         loadHotels();
     }
@@ -1314,6 +1470,8 @@ function displayHotels(hotels) {
         
         // Also populate the hotel dropdown in the add user form
         populateHotelDropdown(hotels);
+        // Populate room accounts filter options
+        populateRoomHotelFilter(hotels);
     } else {
         const row = document.createElement('tr');
         row.innerHTML = '<td colspan="4" style="text-align: center; color: #666;">No hotels found</td>';
