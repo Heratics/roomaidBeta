@@ -160,6 +160,7 @@ function renderDashboard() {
         </div>
         <div class="manager-nav">
             <button id="usersTab" class="nav-btn active" data-tab="users">Users</button>
+            <button id="roomsTab" class="nav-btn" data-tab="rooms">🏨 Rooms</button>
             <button id="reportsTab" class="nav-btn" data-tab="reports">Reports</button>
         </div>
         <div id="users-section" class="manager-section active">
@@ -204,6 +205,62 @@ function renderDashboard() {
                         </div>
                 </div>
                 <div id="reportStatus" class="alert alert-error" style="display:none; margin-top:12px;"></div>
+            </div>
+        </div>
+
+        <div id="rooms-section" class="manager-section">
+            <h2 style="margin:0 0 20px 0;">🏨 Room Accounts</h2>
+
+            <!-- Bulk Create Panel -->
+            <div class="card" style="margin-bottom:20px;">
+                <h3 style="margin:0 0 12px 0;">➕ Add Rooms</h3>
+                <p style="color:var(--text-secondary); margin-bottom:14px; font-size:0.9rem;">Enter room numbers separated by commas, spaces, or new lines. A guest account will be created for each one with the username <code>room_{number}</code>.</p>
+                <div class="form-group">
+                    <label for="bulkRoomNumbers">Room Numbers</label>
+                    <textarea id="bulkRoomNumbers" rows="4" placeholder="101, 102, 103&#10;201&#10;302" style="resize:vertical; font-family:monospace;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="bulkRoomPassword">Initial Password (for all rooms)</label>
+                    <input type="text" id="bulkRoomPassword" placeholder="Min 4 characters">
+                </div>
+                <div id="bulkCreateStatus" style="display:none; padding:10px; border-radius:8px; margin-bottom:10px; font-size:0.9rem;"></div>
+                <button id="bulkCreateBtn" class="btn btn-primary">Create Room Accounts</button>
+            </div>
+
+            <!-- Bulk Password Reset -->
+            <div class="card" style="margin-bottom:20px;">
+                <h3 style="margin:0 0 8px 0;">🔑 Reset All Room Passwords</h3>
+                <p style="color:var(--text-secondary); margin-bottom:12px; font-size:0.9rem;">Set the same new password for every room account in this hotel.</p>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                    <div class="form-group" style="margin:0; flex:1; min-width:200px;">
+                        <label for="bulkNewPassword">New Password</label>
+                        <input type="text" id="bulkNewPassword" placeholder="Min 4 characters">
+                    </div>
+                    <button id="bulkPasswordBtn" class="btn btn-secondary" style="height:44px;">Reset All Passwords</button>
+                </div>
+                <div id="bulkPasswordStatus" style="display:none; margin-top:10px; padding:10px; border-radius:8px; font-size:0.9rem;"></div>
+            </div>
+
+            <!-- Room list -->
+            <div class="flex-between" style="margin-bottom:12px;">
+                <h3 style="margin:0;">Current Room Accounts</h3>
+                <input id="roomSearch" class="search-input" type="search" placeholder="Search room..." style="max-width:200px;">
+            </div>
+            <div id="roomsLoading" style="display:none;">Loading rooms...</div>
+            <div id="roomsError" class="alert alert-error" style="display:none;">Unable to load rooms.</div>
+            <div id="roomsEmpty" class="placeholder-card" style="display:none;">No room accounts yet. Use the form above to create some.</div>
+            <div class="table-wrapper">
+                <table class="users-table" id="roomsTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Room</th>
+                            <th>Username</th>
+                            <th>New Password</th>
+                            <th style="width:100px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roomsTbody"></tbody>
+                </table>
             </div>
         </div>
 
@@ -264,6 +321,7 @@ function renderDashboard() {
 
 function attachDashboardEvents() {
     document.getElementById('usersTab')?.addEventListener('click', () => switchTab('users'));
+    document.getElementById('roomsTab')?.addEventListener('click', () => { switchTab('rooms'); loadRooms(); });
     document.getElementById('reportsTab')?.addEventListener('click', () => switchTab('reports'));
     document.getElementById('backToDashboardBtn')?.addEventListener('click', goToMainDashboard);
 
@@ -300,11 +358,13 @@ function attachDashboardEvents() {
             }
         });
     }
+
+    wireRoomsEvents();
 }
 
 function switchTab(tab) {
     currentTab = tab;
-    const tabs = ['users', 'reports'];
+    const tabs = ['users', 'rooms', 'reports'];
     tabs.forEach(name => {
         const btn = document.querySelector(`[data-tab="${name}"]`);
         const section = document.getElementById(`${name}-section`);
@@ -351,6 +411,214 @@ async function loadUsers(search = '') {
     } finally {
         setUsersState({ loading: false });
     }
+}
+
+function wireRoomsEvents() {
+    const bulkCreateBtn = document.getElementById('bulkCreateBtn');
+    if (bulkCreateBtn && !bulkCreateBtn.dataset.bound) {
+        bulkCreateBtn.addEventListener('click', handleBulkCreate);
+        bulkCreateBtn.dataset.bound = '1';
+    }
+
+    const bulkPasswordBtn = document.getElementById('bulkPasswordBtn');
+    if (bulkPasswordBtn && !bulkPasswordBtn.dataset.bound) {
+        bulkPasswordBtn.addEventListener('click', handleBulkPassword);
+        bulkPasswordBtn.dataset.bound = '1';
+    }
+
+    const roomSearch = document.getElementById('roomSearch');
+    if (roomSearch && !roomSearch.dataset.bound) {
+        roomSearch.addEventListener('input', debounce(() => loadRooms(roomSearch.value.trim()), 300));
+        roomSearch.dataset.bound = '1';
+    }
+
+    const roomsTbody = document.getElementById('roomsTbody');
+    if (roomsTbody && !roomsTbody.dataset.bound) {
+        roomsTbody.addEventListener('click', (e) => {
+            const saveBtn = e.target.closest('.save-room-btn');
+            const deleteBtn = e.target.closest('.delete-room-btn');
+            if (saveBtn) handleSaveRoom(saveBtn.dataset.id);
+            if (deleteBtn) handleDeleteRoom(deleteBtn.dataset.id);
+        });
+        roomsTbody.dataset.bound = '1';
+    }
+}
+
+async function loadRooms(search = '') {
+    const loadingEl = document.getElementById('roomsLoading');
+    const errorEl = document.getElementById('roomsError');
+    const emptyEl = document.getElementById('roomsEmpty');
+    const tableEl = document.getElementById('roomsTable');
+    const tbodyEl = document.getElementById('roomsTbody');
+    if (loadingEl) loadingEl.style.display = 'block';
+    if (errorEl) errorEl.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = 'none';
+    if (tableEl) tableEl.style.display = 'none';
+
+    try {
+        const params = new URLSearchParams();
+        if (search) params.append('search', search);
+        const res = await fetch(`/api/manager/rooms?${params.toString()}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        if (res.status === 401 || res.status === 403) { clearManagerSession(); renderLogin(); return; }
+        if (!res.ok) throw new Error('Failed');
+        const data = await res.json();
+        const rooms = data.rooms || [];
+
+        if (rooms.length === 0) {
+            if (emptyEl) emptyEl.style.display = 'block';
+        } else {
+            if (tableEl) tableEl.style.display = 'table';
+            if (tbodyEl) {
+                tbodyEl.innerHTML = rooms.map(r => `
+                    <tr data-id="${r.id}">
+                        <td><strong>Room ${escapeHtml(r.room_number || '')}</strong></td>
+                        <td><code>${escapeHtml(r.username)}</code></td>
+                        <td>
+                            <input type="text" class="room-pwd-input" data-id="${r.id}"
+                                placeholder="New password (optional)"
+                                style="max-width:180px; padding:6px 8px; border:1px solid var(--input-border); border-radius:6px; background:var(--input-bg); color:var(--text-primary);">
+                        </td>
+                        <td>
+                            <div style="display:flex; gap:6px;">
+                                <button class="save-room-btn btn-secondary" data-id="${r.id}" style="padding:6px 10px; font-size:0.8rem;">💾 Save</button>
+                                <button class="delete-room-btn" data-id="${r.id}" style="padding:6px 10px; font-size:0.8rem; background:none; border:1px solid var(--brand-danger,#ef4444); color:var(--brand-danger,#ef4444); border-radius:6px; cursor:pointer;">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+    } catch (err) {
+        console.error('Load rooms error:', err);
+        if (errorEl) errorEl.style.display = 'block';
+    } finally {
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+}
+
+async function handleBulkCreate() {
+    const roomNumbers = document.getElementById('bulkRoomNumbers')?.value.trim();
+    const password = document.getElementById('bulkRoomPassword')?.value.trim();
+    const statusEl = document.getElementById('bulkCreateStatus');
+
+    if (!roomNumbers || !password) {
+        showBulkStatus(statusEl, 'error', 'Room numbers and password are required.');
+        return;
+    }
+
+    const btn = document.getElementById('bulkCreateBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Creating...'; }
+
+    try {
+        const res = await fetch('/api/manager/rooms/bulk-create', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roomNumbers, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showBulkStatus(statusEl, 'error', data.error || 'Failed to create rooms.');
+        } else {
+            showBulkStatus(statusEl, 'success', data.message);
+            document.getElementById('bulkRoomNumbers').value = '';
+            loadRooms();
+        }
+    } catch (err) {
+        showBulkStatus(statusEl, 'error', 'Network error. Please try again.');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Create Room Accounts'; }
+    }
+}
+
+async function handleBulkPassword() {
+    const newPassword = document.getElementById('bulkNewPassword')?.value.trim();
+    const statusEl = document.getElementById('bulkPasswordStatus');
+
+    if (!newPassword) {
+        showBulkStatus(statusEl, 'error', 'Please enter a new password.');
+        return;
+    }
+    if (!confirm('Reset the password for ALL room accounts in this hotel?')) return;
+
+    const btn = document.getElementById('bulkPasswordBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
+
+    try {
+        const res = await fetch('/api/manager/rooms/bulk-password', {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: newPassword })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showBulkStatus(statusEl, 'error', data.error || 'Failed.');
+        } else {
+            showBulkStatus(statusEl, 'success', `Password reset for ${data.updated} room account(s).`);
+            document.getElementById('bulkNewPassword').value = '';
+        }
+    } catch (err) {
+        showBulkStatus(statusEl, 'error', 'Network error.');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Reset All Passwords'; }
+    }
+}
+
+async function handleSaveRoom(id) {
+    const pwdInput = document.querySelector(`.room-pwd-input[data-id="${id}"]`);
+    const password = pwdInput ? pwdInput.value.trim() : '';
+
+    if (!password) { alert('Enter a new password to save.'); return; }
+
+    try {
+        const res = await fetch(`/api/manager/rooms/${id}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Failed to update.'); return; }
+        if (pwdInput) pwdInput.value = '';
+        alert('Password updated.');
+    } catch (err) {
+        alert('Network error.');
+    }
+}
+
+async function handleDeleteRoom(id) {
+    if (!confirm('Delete this room account? Their pending orders will be cancelled.')) return;
+    try {
+        const res = await fetch(`/api/manager/rooms/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.error || 'Failed to delete.'); return; }
+        loadRooms();
+    } catch (err) {
+        alert('Network error.');
+    }
+}
+
+function showBulkStatus(el, type, msg) {
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = 'block';
+    el.style.background = type === 'success' ? 'var(--bg-tertiary)' : '#fee2e2';
+    el.style.color = type === 'success' ? 'var(--text-primary)' : '#991b1b';
+    el.style.border = type === 'success' ? '1px solid var(--border-primary)' : '1px solid #f87171';
+    setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function renderUsersTable(users) {

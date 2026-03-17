@@ -142,8 +142,12 @@ async function handleLogin(e) {
 
 // Redirect to dashboard page
 function redirectToDashboard() {
-    // All users (including managers) go to the main dashboard
-    // Managers can access the manager view from the settings menu
+    if (currentUser && currentUser.role === 'customer') {
+        window.location.href = 'customer.html';
+        return;
+    }
+
+    // All staff users go to the main dashboard
     window.location.href = 'index.html';
 }
 

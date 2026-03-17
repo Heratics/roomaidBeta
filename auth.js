@@ -72,7 +72,9 @@ class Auth {
         username: user.username,
         hotel_code: user.hotel_code,
         hotelCode: user.hotel_code, // Add both for compatibility
-        role: user.role
+        role: user.role,
+        department: user.department || null,
+        room_number: user.room_number || null
       },
       config.jwtSecret,
       { expiresIn: '7d' }
@@ -193,6 +195,7 @@ class Auth {
         hotel_code: finalHotelCode,
         role: user.role,
         department: user.department || null,
+        room_number: user.room_number || null,
         hotelName: user.hotelName || `Hotel ${finalHotelCode}` // Use actual hotel name if available
       };
     } catch (error) {

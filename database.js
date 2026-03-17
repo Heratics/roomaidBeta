@@ -295,6 +295,26 @@ class Database {
         console.log('Department column might already exist in users table');
       }
 
+      // Add room_number column to users table if it doesn't exist (for customer/room accounts)
+      try {
+        await this.pool.query(`
+          ALTER TABLE users
+          ADD COLUMN room_number VARCHAR(20) DEFAULT NULL
+        `);
+      } catch (error) {
+        console.log('room_number column might already exist in users table');
+      }
+
+      // Update order_logs action_type enum to include 'cancelled'
+      try {
+        await this.pool.query(`
+          ALTER TABLE order_logs
+          MODIFY COLUMN action_type ENUM('deleted', 'edited', 'restored', 'hold', 'cancelled') NOT NULL
+        `);
+      } catch (error) {
+        console.log('order_logs action_type enum might already include cancelled');
+      }
+
       console.log('✅ Database tables created/verified');
     } catch (error) {
       console.error('❌ Error creating tables:', error);

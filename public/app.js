@@ -684,18 +684,17 @@ async function loadHotelDepartmentsAndFilterTabs() {
                 currentDepartment = currentUser.department;
                 console.log(`Employee assigned to department: ${currentDepartment}`);
                 
-                // Disable all other department tabs for employees
+                // Hide all other department tabs for employees — completely invisible
                 allTabs.forEach(btn => {
                     if (btn.dataset.department !== currentUser.department) {
-                        btn.disabled = true;
-                        btn.style.opacity = '0.5';
-                        btn.style.cursor = 'not-allowed';
-                        btn.title = 'You can only access your assigned department';
+                        btn.style.display = 'none';
                     } else {
+                        btn.style.display = '';
                         btn.disabled = false;
                         btn.style.opacity = '1';
                         btn.style.cursor = 'pointer';
                         btn.title = '';
+                        btn.classList.add('active');
                     }
                 });
             } else {
@@ -736,18 +735,17 @@ function setupDefaultDashboard() {
         currentDepartment = currentUser.department;
         console.log(`Employee assigned to department: ${currentDepartment}`);
         
-        // Disable all other department tabs for employees
+        // Hide all other department tabs completely for employees
         document.querySelectorAll('.tab-btn').forEach(btn => {
             if (btn.dataset.department !== currentUser.department) {
-                btn.disabled = true;
-                btn.style.opacity = '0.5';
-                btn.style.cursor = 'not-allowed';
-                btn.title = 'You can only access your assigned department';
+                btn.style.display = 'none';
             } else {
+                btn.style.display = '';
                 btn.disabled = false;
                 btn.style.opacity = '1';
                 btn.style.cursor = 'pointer';
                 btn.title = '';
+                btn.classList.add('active');
             }
         });
     }

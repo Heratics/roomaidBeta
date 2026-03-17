@@ -181,7 +181,8 @@ app.post('/api/auth/login', async (req, res) => {
         hotel_code: user.hotel_code,
         role: user.role,
         hotelName: user.hotelName,
-        department: user.department || null
+        department: user.department || null,
+        room_number: user.room_number || null
       }
     });
   } catch (error) {
@@ -234,6 +235,12 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
     // Filter by user's hotel code to ensure they only see orders from their hotel
     // Also exclude soft-deleted orders
     let params = [user.hotel_code || user.hotelCode];
+
+    // Customers can only see orders they personally submitted
+    if (user.role === 'customer') {
+      query += ` AND o.sent_by = ?`;
+      params.push(user.id);
+    }
 
     // If user is an employee, only show orders from their assigned department
     // Front desk can see all departments
@@ -447,10 +454,10 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
 
 /**
  * DELETE /api/orders/:id
- * Delete an order
+ * Delete/cancel an order
  * Requires authentication
  * URL parameter: id (order ID)
- * Optional body field: deletionReason
+ * Optional body field: deletionReason (required for customers)
  */
 app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
   try {
@@ -458,6 +465,11 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { deletionReason } = req.body;
     const user = req.user;
+
+    // Customers MUST provide a reason to cancel their order
+    if (user.role === 'customer' && (!deletionReason || !deletionReason.trim())) {
+      return res.status(400).json({ error: 'A cancellation reason is required to cancel your order.' });
+    }
 
     // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
     let tableName = null;
@@ -467,8 +479,12 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
 
     // Check all department tables
     for (const tbl of tableNames) {
-      const checkResult = await db.query(`SELECT id FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, hotelCode]);
+      const checkResult = await db.query(`SELECT id, sent_by FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, hotelCode]);
       if (checkResult.length > 0) {
+        // Customers can only cancel their own orders
+        if (user.role === 'customer' && checkResult[0].sent_by !== user.id) {
+          return res.status(403).json({ error: 'You can only cancel your own orders.' });
+        }
         tableName = tbl;
         orderFound = true;
         break;
@@ -2822,6 +2838,457 @@ app.post('/api/debug/create-user', async (req, res) => {
   } catch (error) {
     console.error('Debug create user error:', error);
     res.status(500).json({ error: 'Failed to create user', details: error.message });
+  }
+});
+
+});
+
+// ============================================================================
+// CUSTOMER ORDER ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/customer/orders
+ * Get all orders submitted by the logged-in customer (across all departments)
+ * Requires authentication with role=customer
+ */
+app.get('/api/customer/orders', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    if (user.role !== 'customer') {
+      return res.status(403).json({ error: 'Customer access only' });
+    }
+
+    const hotelCode = user.hotel_code || user.hotelCode;
+    const baseFields = `
+      o.id, o.order_name, o.order_notes, o.created_at, o.completed_at, o.deleted_at,
+      o.on_hold, o.hold_info, o.hold_until, o.hold_reason, o.hotel_code,
+      COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username, NULL) as receiverName
+    `;
+
+    const rows = await db.query(`
+      (SELECT 'Engineering' as department, ${baseFields} FROM engineering_orders o
+        LEFT JOIN users assignee ON o.assigned_to = assignee.id
+        WHERE o.sent_by = ? AND o.hotel_code = ? AND o.deleted_at IS NULL)
+      UNION ALL
+      (SELECT 'Housekeeping' as department, ${baseFields} FROM housekeeping_orders o
+        LEFT JOIN users assignee ON o.assigned_to = assignee.id
+        WHERE o.sent_by = ? AND o.hotel_code = ? AND o.deleted_at IS NULL)
+      UNION ALL
+      (SELECT 'Laundry' as department, ${baseFields} FROM laundry_orders o
+        LEFT JOIN users assignee ON o.assigned_to = assignee.id
+        WHERE o.sent_by = ? AND o.hotel_code = ? AND o.deleted_at IS NULL)
+      UNION ALL
+      (SELECT 'Room Service' as department, ${baseFields} FROM roomservice_orders o
+        LEFT JOIN users assignee ON o.assigned_to = assignee.id
+        WHERE o.sent_by = ? AND o.hotel_code = ? AND o.deleted_at IS NULL)
+      ORDER BY created_at DESC
+    `, [
+      user.id, hotelCode,
+      user.id, hotelCode,
+      user.id, hotelCode,
+      user.id, hotelCode
+    ]);
+
+    res.json({ orders: rows });
+  } catch (error) {
+    console.error('Customer orders fetch error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/customer/orders
+ * Submit a new service request as a customer
+ * Body: { department, notes }
+ * The room number comes from the customer's profile
+ */
+app.post('/api/customer/orders', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    if (user.role !== 'customer') {
+      return res.status(403).json({ error: 'Customer access only' });
+    }
+
+    const { department, notes } = req.body;
+    if (!department) {
+      return res.status(400).json({ error: 'Department is required' });
+    }
+
+    const deptValidation = validation.validateDepartment(department);
+    if (!deptValidation.isValid) {
+      return res.status(400).json({ error: deptValidation.error });
+    }
+
+    const notesValidation = validation.validateNotes(notes);
+    if (!notesValidation.isValid) {
+      return res.status(400).json({ error: notesValidation.error });
+    }
+
+    const hotelCode = user.hotel_code || user.hotelCode;
+    const roomNumber = user.room_number || user.username;
+    const tableName = getDepartmentTableName(deptValidation.value);
+    const orderName = `Room ${roomNumber}`;
+
+    const result = await db.query(`
+      INSERT INTO ${tableName} (order_name, order_notes, sent_by, created_at, hotel_code)
+      VALUES (?, ?, ?, NOW(), ?)
+    `, [orderName, notesValidation.value || '', user.id, hotelCode]);
+
+    const orderId = result.insertId;
+
+    const orders = await db.query(`
+      SELECT o.*, '${deptValidation.value}' as department FROM ${tableName} o WHERE o.id = ?
+    `, [orderId]);
+
+    // Notify hotel staff via FCM
+    try {
+      const hotelUsers = await db.query(
+        `SELECT id FROM users WHERE hotel_code = ? AND id != ? AND role != 'customer'`,
+        [hotelCode, user.id]
+      );
+      if (hotelUsers && hotelUsers.length > 0) {
+        const userIds = hotelUsers.map(u => u.id);
+        await fcmRoutes.sendFCMNotification(userIds, {
+          title: '🆕 New Guest Request',
+          body: `${deptValidation.value}: ${orderName}`,
+          data: {
+            orderId: orderId.toString(),
+            department: deptValidation.value,
+            type: 'new_order'
+          }
+        });
+      }
+    } catch (fcmErr) {
+      console.warn('FCM notification for customer order failed:', fcmErr.message);
+    }
+
+    // Schedule reminders
+    try {
+      await orderNotifications.scheduleReminders(orderId, deptValidation.value.toLowerCase(), hotelCode, {
+        roomNumber,
+        notes: notesValidation.value || ''
+      });
+    } catch (remErr) {
+      console.warn('Reminder scheduling failed:', remErr.message);
+    }
+
+    res.json({ order: orders[0] });
+  } catch (error) {
+    console.error('Customer create order error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * DELETE /api/customer/orders/:id
+ * Cancel a customer's own order — reason is mandatory
+ */
+app.delete('/api/customer/orders/:id', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user;
+    if (user.role !== 'customer') {
+      return res.status(403).json({ error: 'Customer access only' });
+    }
+
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: 'A cancellation reason is required.' });
+    }
+
+    const hotelCode = user.hotel_code || user.hotelCode;
+    const tableNames = ['engineering_orders', 'housekeeping_orders', 'laundry_orders', 'roomservice_orders'];
+    let tableName = null;
+
+    for (const tbl of tableNames) {
+      const rows = await db.query(
+        `SELECT id, sent_by, completed_at FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`,
+        [id, hotelCode]
+      );
+      if (rows.length > 0) {
+        if (rows[0].sent_by !== user.id) {
+          return res.status(403).json({ error: 'You can only cancel your own orders.' });
+        }
+        if (rows[0].completed_at) {
+          return res.status(400).json({ error: 'Cannot cancel a completed order.' });
+        }
+        tableName = tbl;
+        break;
+      }
+    }
+
+    if (!tableName) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    const orderData = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
+    orderNotifications.clearReminders(id);
+
+    await db.query(`UPDATE ${tableName} SET deleted_at = NOW() WHERE id = ?`, [id]);
+
+    const userFullName = user.room_number ? `Room ${user.room_number}` : user.username;
+    await db.query(`
+      INSERT INTO order_logs (order_id, order_type, action_type, changed_by, changed_by_name, hotel_code, old_data, change_description)
+      VALUES (?, ?, 'cancelled', ?, ?, ?, ?, ?)
+    `, [
+      id,
+      getOrderTypeFromTableName(tableName),
+      user.id,
+      userFullName,
+      hotelCode,
+      JSON.stringify(orderData[0]),
+      `Order cancelled by ${userFullName} - Reason: ${reason.trim()}`
+    ]);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Customer cancel order error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ============================================================================
+// ROOM USER MANAGEMENT (Manager/Admin)
+// ============================================================================
+
+/**
+ * GET /api/manager/rooms
+ * Get all customer/room accounts for the manager's hotel
+ */
+app.get('/api/manager/rooms', authenticateToken, async (req, res) => {
+  try {
+    const requester = req.user;
+    const allowedRoles = ['manager', 'supervisor', 'admin'];
+    if (!allowedRoles.includes(requester.role)) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const hotelCode = requester.hotel_code || requester.hotelCode;
+    const { search = '' } = req.query;
+    const searchTerm = search.trim();
+
+    let query = `
+      SELECT u.id, u.username, u.room_number, u.hotel_code, u.role, u.createdAt
+      FROM users u
+      WHERE u.hotel_code = ? AND u.role = 'customer'
+    `;
+    const params = [hotelCode];
+
+    if (searchTerm) {
+      query += ` AND (u.username LIKE ? OR u.room_number LIKE ?)`;
+      const like = `%${searchTerm}%`;
+      params.push(like, like);
+    }
+
+    query += ' ORDER BY u.room_number ASC, u.createdAt ASC';
+
+    const rooms = await db.query(query, params);
+    res.json({ rooms, hotelCode });
+  } catch (error) {
+    console.error('Manager rooms fetch error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/manager/rooms/bulk-create
+ * Create multiple room customer accounts at once
+ * Body: { roomNumbers: string (comma/newline separated), password: string }
+ */
+app.post('/api/manager/rooms/bulk-create', authenticateToken, async (req, res) => {
+  try {
+    const requester = req.user;
+    const allowedRoles = ['manager', 'supervisor', 'admin'];
+    if (!allowedRoles.includes(requester.role)) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const { roomNumbers, password } = req.body;
+
+    if (!roomNumbers || !roomNumbers.trim()) {
+      return res.status(400).json({ error: 'Room numbers are required.' });
+    }
+    if (!password || password.length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+    }
+
+    const hotelCode = requester.hotel_code || requester.hotelCode;
+
+    // Parse room numbers: support comma, newline, space separation
+    const parsed = roomNumbers
+      .split(/[\n,\s]+/)
+      .map(r => r.trim())
+      .filter(r => r.length > 0 && /^[A-Za-z0-9\-]{1,20}$/.test(r));
+
+    if (parsed.length === 0) {
+      return res.status(400).json({ error: 'No valid room numbers provided.' });
+    }
+    if (parsed.length > 200) {
+      return res.status(400).json({ error: 'Cannot create more than 200 rooms at once.' });
+    }
+
+    const created = [];
+    const skipped = [];
+
+    for (const roomNum of parsed) {
+      const username = `room_${roomNum}`;
+      // Check if already exists
+      const existing = await db.query('SELECT id FROM users WHERE username = ? AND hotel_code = ?', [username, hotelCode]);
+      if (existing.length > 0) {
+        skipped.push(roomNum);
+        continue;
+      }
+      await db.query(`
+        INSERT INTO users (username, passwordHash, hotel_code, role, room_number, first_name, last_name, createdAt, updatedAt)
+        VALUES (?, ?, ?, 'customer', ?, ?, '', NOW(), NOW())
+      `, [username, password, hotelCode, roomNum, `Room ${roomNum}`]);
+      created.push(roomNum);
+    }
+
+    res.json({
+      success: true,
+      created: created.length,
+      skipped: skipped.length,
+      createdRooms: created,
+      skippedRooms: skipped,
+      message: `Created ${created.length} room account(s). ${skipped.length > 0 ? `Skipped ${skipped.length} (already exist).` : ''}`
+    });
+  } catch (error) {
+    console.error('Bulk create rooms error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * PUT /api/manager/rooms/:id
+ * Update a room customer account (room number and/or password)
+ */
+app.put('/api/manager/rooms/:id', authenticateToken, async (req, res) => {
+  try {
+    const requester = req.user;
+    const allowedRoles = ['manager', 'supervisor', 'admin'];
+    if (!allowedRoles.includes(requester.role)) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const { id } = req.params;
+    const { roomNumber, password } = req.body;
+    const hotelCode = requester.hotel_code || requester.hotelCode;
+
+    // Find the room user
+    const target = await db.query('SELECT id, hotel_code, role FROM users WHERE id = ? AND role = ?', [id, 'customer']);
+    if (target.length === 0) {
+      return res.status(404).json({ error: 'Room account not found.' });
+    }
+    if (requester.role !== 'admin' && target[0].hotel_code !== hotelCode) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    if (roomNumber && !/^[A-Za-z0-9\-]{1,20}$/.test(roomNumber.trim())) {
+      return res.status(400).json({ error: 'Invalid room number format.' });
+    }
+
+    let query = 'UPDATE users SET updatedAt = NOW()';
+    const params = [];
+
+    if (roomNumber && roomNumber.trim()) {
+      const rn = roomNumber.trim();
+      query += ', room_number = ?, username = ?, first_name = ?';
+      params.push(rn, `room_${rn}`, `Room ${rn}`);
+    }
+    if (password && password.trim()) {
+      if (password.length < 4) {
+        return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+      }
+      query += ', passwordHash = ?';
+      params.push(password.trim());
+    }
+
+    if (params.length === 0) {
+      return res.status(400).json({ error: 'Nothing to update.' });
+    }
+
+    query += ' WHERE id = ?';
+    params.push(id);
+
+    await db.query(query, params);
+
+    const updated = await db.query('SELECT id, username, room_number, role, hotel_code FROM users WHERE id = ?', [id]);
+    res.json({ success: true, room: updated[0] });
+  } catch (error) {
+    console.error('Update room error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * DELETE /api/manager/rooms/:id
+ * Delete a room customer account
+ */
+app.delete('/api/manager/rooms/:id', authenticateToken, async (req, res) => {
+  try {
+    const requester = req.user;
+    const allowedRoles = ['manager', 'supervisor', 'admin'];
+    if (!allowedRoles.includes(requester.role)) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const { id } = req.params;
+    const hotelCode = requester.hotel_code || requester.hotelCode;
+
+    const target = await db.query('SELECT id, hotel_code, role FROM users WHERE id = ? AND role = ?', [id, 'customer']);
+    if (target.length === 0) {
+      return res.status(404).json({ error: 'Room account not found.' });
+    }
+    if (requester.role !== 'admin' && target[0].hotel_code !== hotelCode) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    // Soft-delete all their pending orders before removing the user
+    const tbls = ['engineering_orders', 'housekeeping_orders', 'laundry_orders', 'roomservice_orders'];
+    for (const tbl of tbls) {
+      await db.query(`UPDATE ${tbl} SET deleted_at = NOW() WHERE sent_by = ? AND deleted_at IS NULL AND completed_at IS NULL`, [id]);
+    }
+
+    await db.query('DELETE FROM fcm_tokens WHERE user_id = ?', [id]);
+    await db.query('DELETE FROM users WHERE id = ?', [id]);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete room error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * PUT /api/manager/rooms/bulk-password
+ * Reset password for all room accounts in the hotel
+ */
+app.put('/api/manager/rooms/bulk-password', authenticateToken, async (req, res) => {
+  try {
+    const requester = req.user;
+    const allowedRoles = ['manager', 'supervisor', 'admin'];
+    if (!allowedRoles.includes(requester.role)) {
+      return res.status(403).json({ error: 'Manager access required' });
+    }
+
+    const { password } = req.body;
+    if (!password || password.length < 4) {
+      return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+    }
+
+    const hotelCode = requester.hotel_code || requester.hotelCode;
+    const result = await db.query(
+      `UPDATE users SET passwordHash = ?, updatedAt = NOW() WHERE hotel_code = ? AND role = 'customer'`,
+      [password.trim(), hotelCode]
+    );
+
+    res.json({ success: true, updated: result.affectedRows });
+  } catch (error) {
+    console.error('Bulk password update error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
