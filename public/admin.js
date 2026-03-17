@@ -6,7 +6,8 @@
 // Global variables
 let currentUser = null;
 let authToken = null;
-let isLoading = false;
+let isUsersLoading = false;
+let isHotelsLoading = false;
 let lastRequestTime = 0;
 const REQUEST_THROTTLE = 500; // Minimum 500ms between requests (reduced from 1000ms)
 let autoRefreshInterval = null;
@@ -652,10 +653,10 @@ async function handleAddUser(event) {
  * Load and display users with enhanced error handling, loading states, and pagination
  */
 async function loadUsers(searchTerm = '', refresh = false, page = 1) {
-    if (isLoading && !refresh) return; // Prevent multiple simultaneous calls unless refreshing
+    if (isUsersLoading && !refresh) return; // Prevent multiple simultaneous calls unless refreshing
     
     try {
-        isLoading = true;
+        isUsersLoading = true;
         console.log('Loading users with token:', authToken ? 'present' : 'missing');
         
         // Show loading state
@@ -732,7 +733,7 @@ async function loadUsers(searchTerm = '', refresh = false, page = 1) {
         showAlert('Error loading users. Please try again.', 'error');
         displayUserError();
     } finally {
-        isLoading = false;
+        isUsersLoading = false;
         showUserLoadingState(false);
     }
 }
@@ -1393,7 +1394,7 @@ async function handleAddHotel(event) {
  * Load and display hotels
  */
 async function loadHotels() {
-    if (isLoading) return;
+    if (isHotelsLoading) return;
     
     // Throttle requests
     if (!throttleRequest()) {
@@ -1403,7 +1404,7 @@ async function loadHotels() {
     }
     
     try {
-        isLoading = true;
+        isHotelsLoading = true;
         console.log('Loading hotels with token:', authToken ? 'present' : 'missing');
         
         const response = await fetch('/api/admin/hotels', {
@@ -1430,7 +1431,7 @@ async function loadHotels() {
         console.error('Error loading hotels:', error);
         showAlert('Error loading hotels. Please try again.', 'error');
     } finally {
-        isLoading = false;
+        isHotelsLoading = false;
     }
 }
 
