@@ -17,6 +17,8 @@ if (process.env.NODE_ENV === 'production' && !process.env.DB_SERVER) {
 
 // Core Express.js framework for web server functionality
 const express = require('express');
+const dns = require('dns').promises;
+const net = require('net');
 
 // Cross-Origin Resource Sharing middleware for API access
 const cors = require('cors');
@@ -3399,6 +3401,46 @@ function isTransientDbError(error) {
   return ['ETIMEDOUT', 'EAI_AGAIN', 'ECONNRESET', 'ECONNREFUSED', 'PROTOCOL_CONNECTION_LOST'].includes(code);
 }
 
+async function runDatabaseConnectivityDiagnostics() {
+  const host = config.db.host;
+  const port = config.db.port;
+
+  console.log(`🧪 DB diagnostics: host=${host}, port=${port}, db=${config.db.database}, ssl=${config.db.ssl ? 'on' : 'off'}`);
+
+  try {
+    const records = await dns.lookup(host, { all: true });
+    const resolved = records.map(r => `${r.address}/${r.family === 6 ? 'IPv6' : 'IPv4'}`).join(', ');
+    console.log(`✅ DNS resolved ${host} -> ${resolved}`);
+  } catch (error) {
+    console.error(`❌ DNS lookup failed for ${host}:`, error.code || error.message);
+    return;
+  }
+
+  // Best-effort TCP probe for deploy logs when shell access is unavailable.
+  await new Promise(resolve => {
+    const socket = new net.Socket();
+    let settled = false;
+
+    const finish = (ok, detail) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      if (ok) {
+        console.log(`✅ TCP probe succeeded to ${host}:${port}`);
+      } else {
+        console.error(`❌ TCP probe failed to ${host}:${port}: ${detail}`);
+      }
+      resolve();
+    };
+
+    socket.setTimeout(5000);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false, 'timeout'));
+    socket.once('error', err => finish(false, err.code || err.message));
+    socket.connect(port, host);
+  });
+}
+
 async function connectWithRetry(maxAttempts = 8) {
   let lastError;
 
@@ -3424,6 +3466,8 @@ async function connectWithRetry(maxAttempts = 8) {
 
 async function startServer() {
   try {
+    await runDatabaseConnectivityDiagnostics();
+
     // Connect to database
     await connectWithRetry();
 
