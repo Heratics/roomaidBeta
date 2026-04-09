@@ -31,6 +31,15 @@ const db = require('./database');
 class Auth {
 
   /**
+   * Check whether a stored password string looks like a bcrypt hash.
+   * @param {string} value - Stored password value
+   * @returns {boolean} True if value appears to be a bcrypt hash
+   */
+  isBcryptHash(value) {
+    return typeof value === 'string' && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(value);
+  }
+
+  /**
    * Hash a password using bcrypt with salt rounds
    * @param {string} password - Plain text password to hash
    * @returns {Promise<string>} Hashed password
@@ -173,9 +182,10 @@ class Auth {
         return null;
       }
 
-      // For now, do simple string comparison since existing passwords are plain text
-      // TODO: Migrate to bcrypt hashing
-      const isValidPassword = password === storedPassword;
+      // Support both legacy plain-text stored passwords and bcrypt hashes.
+      const isValidPassword = this.isBcryptHash(storedPassword)
+        ? await this.verifyPassword(password, storedPassword)
+        : password === storedPassword;
 
       if (!isValidPassword) {
         return null;

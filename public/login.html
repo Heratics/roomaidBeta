@@ -62,14 +62,14 @@
                     <!-- Username input field -->
                     <div class="form-group">
                         <label for="username">Username</label>
-                        <input type="text" id="username" name="username" required>
+                        <input type="text" id="username" name="username" autocomplete="username" required>
                     </div>
                     
                     <!-- Password input field with visibility toggle -->
                     <div class="form-group">
                         <label for="password">Password</label>
                         <div class="password-container">
-                            <input type="password" id="password" name="password" required>
+                            <input type="password" id="password" name="password" autocomplete="current-password" required>
                             <!-- Password visibility toggle button -->
                             <button type="button" id="togglePassword" class="password-toggle">
                                 🙈
@@ -80,7 +80,7 @@
                     <!-- Hotel code input field for multi-hotel support -->
                     <div class="form-group">
                         <label for="hotelCode">Hotel Code</label>
-                        <input type="text" id="hotelCode" name="hotelCode" required>
+                        <input type="text" id="hotelCode" name="hotelCode" autocomplete="organization" required>
                     </div>
                     
                     <!-- Login submit button -->
