@@ -1,17 +1,39 @@
+function parseBoolean(value, defaultValue = false) {
+  if (value === undefined || value === null || value === '') {
+    return defaultValue;
+  }
+
+  return ['true', '1', 'yes', 'on'].includes(String(value).trim().toLowerCase());
+}
+
+const dbEncrypt = parseBoolean(process.env.DB_ENCRYPT, false);
+const dbTrustCert = parseBoolean(process.env.DB_TRUST_CERT, false);
+
+const sslConfig = dbEncrypt
+  ? {
+      // If DB_TRUST_CERT is true, skip CA verification. Otherwise verify certificates.
+      rejectUnauthorized: !dbTrustCert,
+      ...(process.env.DB_SSL_CA
+        ? { ca: process.env.DB_SSL_CA.replace(/\\n/g, '\n') }
+        : {})
+    }
+  : null;
+
 module.exports = {
   // Database Configuration
   db: {
-    host: process.env.DB_SERVER || 'roomaid26database-rb-roomaid26.d.aivencloud.com',
+    host: process.env.DB_SERVER || process.env.DB_HOST || 'roomaid-962-room-aid-962.e.aivencloud.com',
     user: process.env.DB_USER || 'avnadmin',
-    password: process.env.DB_PASSWORD || 'AVNS_PP4bZhJVOxOkSxYHari',
-    database: process.env.DB_NAME || 'RoomAid',
-    port: parseInt(process.env.DB_PORT) || 23847,
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'room',
+    port: parseInt(process.env.DB_PORT, 10) || 24815,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    ssl: process.env.DB_ENCRYPT === 'true' ? {
-      rejectUnauthorized: process.env.DB_TRUST_CERT === 'false'
-    } : null
+    connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '20000', 10),
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
+    ssl: sslConfig
   },
 
   // Server Configuration
