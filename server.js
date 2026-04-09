@@ -3393,10 +3393,39 @@ app.put('/api/manager/rooms/bulk-password', authenticateToken, async (req, res) 
   }
 });
 
+function isTransientDbError(error) {
+  if (!error || typeof error !== 'object') return false;
+  const code = String(error.code || '').toUpperCase();
+  return ['ETIMEDOUT', 'EAI_AGAIN', 'ECONNRESET', 'ECONNREFUSED', 'PROTOCOL_CONNECTION_LOST'].includes(code);
+}
+
+async function connectWithRetry(maxAttempts = 8) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await db.connect();
+      return;
+    } catch (error) {
+      lastError = error;
+
+      if (!isTransientDbError(error) || attempt === maxAttempts) {
+        throw error;
+      }
+
+      const delayMs = Math.min(30000, 2000 * attempt);
+      console.error(`⚠️ DB connection attempt ${attempt}/${maxAttempts} failed (${error.code || 'UNKNOWN'}). Retrying in ${delayMs}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+
+  throw lastError;
+}
+
 async function startServer() {
   try {
     // Connect to database
-    await db.connect();
+    await connectWithRetry();
 
     // Start listening for HTTP requests
     app.listen(PORT, () => {
