@@ -216,6 +216,12 @@ app.post('/api/auth/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
+
+    const transientDbCodes = ['ETIMEDOUT', 'EAI_AGAIN', 'ECONNREFUSED', 'ECONNRESET', 'PROTOCOL_CONNECTION_LOST'];
+    if (transientDbCodes.includes(String(error.code || '').toUpperCase())) {
+      return res.status(503).json({ error: 'Database is temporarily unavailable. Please try again shortly.' });
+    }
+
     res.status(500).json({ error: 'Internal server error' });
   }
 });
