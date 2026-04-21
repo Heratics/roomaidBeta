@@ -273,7 +273,7 @@ class Database {
           id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
           user_id INT NOT NULL,
           username VARCHAR(255) NOT NULL,
-          fcm_token TEXT NOT NULL,
+          fcm_token VARCHAR(255) NOT NULL,
           device_info JSON DEFAULT NULL,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -281,7 +281,7 @@ class Database {
           INDEX idx_user_id (user_id),
           INDEX idx_username (username),
           INDEX idx_created_at (created_at),
-          UNIQUE KEY uniq_user_token (user_id, (fcm_token(255)))
+          UNIQUE KEY uniq_user_token (user_id, fcm_token)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
       `);
 
