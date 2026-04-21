@@ -1669,17 +1669,39 @@ function createOrderCard(order) {
         ` : ''}
     `;
     
+    // Log button rendering info
+    const buttonInfo = {
+        orderId: order.id,
+        department: currentDepartment,
+        isCompleted,
+        isReceived,
+        isPending,
+        assigned_to: order.assigned_to,
+        completed_at: order.completed_at,
+        shouldShowReceive: !isCompleted && !isReceived,
+        shouldShowComplete: isReceived && !isCompleted
+    };
+    console.log(`📋 Order card rendering:`, buttonInfo);
+    
     // Add button event listeners
     const receiveBtn = card.querySelector('.receive-btn');
     if (receiveBtn) {
         receiveBtn.addEventListener('click', () => {
+            console.log(`🔵 Receive button clicked for order ${order.id} (Department: ${currentDepartment})`);
             receiveOrder(order.id);
         });
+    } else {
+        console.log(`⚠️ Receive button not found for order ${order.id}. Conditions: isCompleted=${isCompleted}, isReceived=${isReceived}`);
     }
     
     const completeBtn = card.querySelector('.complete-btn');
     if (completeBtn) {
-        completeBtn.addEventListener('click', () => completeOrder(order.id));
+        completeBtn.addEventListener('click', () => {
+            console.log(`🟢 Complete button clicked for order ${order.id} (Department: ${currentDepartment})`);
+            completeOrder(order.id);
+        });
+    } else {
+        console.log(`⚠️ Complete button not found for order ${order.id}. Conditions: isCompleted=${isCompleted}, isReceived=${isReceived}`);
     }
     
     // Burger menu functionality
@@ -1734,6 +1756,7 @@ function createOrderCard(order) {
 
 // Receive order
 async function receiveOrder(orderId) {
+    console.log(`📤 receiveOrder called with orderId=${orderId}`);
     try {
         const response = await fetch(`/api/orders/${orderId}/receive`, {
             method: 'POST',
@@ -1742,7 +1765,10 @@ async function receiveOrder(orderId) {
             }
         });
 
+        console.log(`📤 Receive response status: ${response.status}`);
+        
         if (response.ok) {
+            console.log(`✅ Order ${orderId} received successfully`);
             setTimeout(() => {
                 loadOrders();
             }, 500);
@@ -1759,6 +1785,7 @@ async function receiveOrder(orderId) {
 
 // Complete order
 async function completeOrder(orderId) {
+    console.log(`✅ completeOrder called with orderId=${orderId}`);
     try {
         const response = await fetch(`/api/orders/${orderId}/complete`, {
             method: 'POST',
@@ -1767,16 +1794,22 @@ async function completeOrder(orderId) {
             }
         });
         
+        console.log(`✅ Complete response status: ${response.status}`);
+        
         if (response.ok) {
+            console.log(`✅ Order ${orderId} completed successfully`);
             // Small delay to ensure server has processed the change
             setTimeout(() => {
                 loadOrders(); // Reload orders to show updated status
             }, 500);
         } else {
-            console.error('Failed to complete order');
+            const errorData = await response.json();
+            console.error('Failed to complete order:', response.status, errorData);
+            alert(`Error: ${errorData.error || 'Failed to complete order'}`);
         }
     } catch (error) {
         console.error('Error completing order:', error);
+        alert('Network error: ' + error.message);
     }
 }
 
