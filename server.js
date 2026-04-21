@@ -2720,13 +2720,16 @@ app.get('/api/notifications/pending', authenticateToken, async (req, res) => {
     // Mark notifications as sent in database
     for (const notif of notifications) {
       try {
+        // Convert department name to enum value (e.g. "Room Service" -> "roomservice")
+        let orderType = notif.department.toLowerCase().trim().replace(/\s+/g, '');
+
         await db.query(`
           INSERT INTO order_notifications (order_id, order_type, hotel_code, notification_level, sent_at)
           VALUES (?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE sent_at = NOW()
         `, [
           notif.id,
-          notif.department.toLowerCase(),
+          orderType,
           hotelCode,
           notif.level
         ]);
@@ -2826,13 +2829,16 @@ app.get('/api/notifications/new-orders', authenticateToken, async (req, res) => 
     // Mark notifications as sent in database
     for (const notif of notifications) {
       try {
+        // Convert department name to enum value (e.g. "Room Service" -> "roomservice")
+        let orderType = notif.department.toLowerCase().trim().replace(/\s+/g, '');
+
         await db.query(`
           INSERT INTO order_notifications (order_id, order_type, hotel_code, notification_level, sent_at)
           VALUES (?, ?, ?, ?, NOW())
           ON DUPLICATE KEY UPDATE sent_at = NOW()
         `, [
           notif.id,
-          notif.department.toLowerCase(),
+          orderType,
           hotelCode,
           notif.level
         ]);
