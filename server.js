@@ -435,6 +435,11 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
     // Extract order ID from URL parameters
     const { id } = req.params;
     const user = req.user;
+    const orderId = parseInt(id);
+
+    if (isNaN(orderId)) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
 
     // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
     let tableName = null;
@@ -444,7 +449,7 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
 
     // Check all department tables
     for (const tbl of tableNames) {
-      const checkResult = await db.query(`SELECT id FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, hotelCode]);
+      const checkResult = await db.query(`SELECT id FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [orderId, hotelCode]);
       if (checkResult.length > 0) {
         tableName = tbl;
         orderFound = true;
@@ -461,7 +466,7 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
       UPDATE ${tableName} 
       SET assigned_to = ?
       WHERE id = ?
-    `, [user.id, id]);
+    `, [user.id, orderId]);
 
     // Fetch the updated order with creator and assignee information
     const orders = await db.query(`
@@ -474,7 +479,7 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
       LEFT JOIN users creator ON o.sent_by = creator.id
       LEFT JOIN users assignee ON o.assigned_to = assignee.id
       WHERE o.id = ?
-    `, [id]);
+    `, [orderId]);
 
     // Check if order was found
     if (orders.length === 0) {
