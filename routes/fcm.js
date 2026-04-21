@@ -293,7 +293,6 @@ async function sendFCMNotification(userIds, notification) {
 
         if (fcmInitialized && admin) {
             // FCM requires all data values to be strings
-            // Send data-only message (no notification field) to prevent browser auto-display
             const messageData = {
                 title: notification.title || 'RoomAid',
                 body: notification.body || 'New notification'
@@ -303,14 +302,19 @@ async function sendFCMNotification(userIds, notification) {
                     messageData[key] = String(notification.data[key]);
                 });
             }
-            
+
             const message = {
+                notification: {
+                    title: notification.title || 'RoomAid',
+                    body: notification.body || 'New notification'
+                },
                 data: messageData,
                 tokens: fcmTokens
             };
 
             const response = await admin.messaging().sendEachForMulticast(message);
-            
+            console.log(`📤 FCM notification sent: ${response.successCount} success, ${response.failureCount} failed`);
+
             // Clean up invalid tokens
             if (response.failureCount > 0) {
                 const invalidTokens = [];
