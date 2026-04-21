@@ -1741,18 +1741,19 @@ async function receiveOrder(orderId) {
                 'Authorization': `Bearer ${currentToken}`
             }
         });
-        
+
         if (response.ok) {
-            // Small delay to ensure server has processed the change
             setTimeout(() => {
-                loadOrders(); // Reload orders to show updated status
+                loadOrders();
             }, 500);
         } else {
             const errorData = await response.json();
-            console.error('Failed to receive order:', errorData);
+            console.error('Failed to receive order:', response.status, errorData);
+            alert(`Error: ${errorData.error || 'Failed to receive order'}`);
         }
     } catch (error) {
         console.error('Error receiving order:', error);
+        alert('Network error: ' + error.message);
     }
 }
 
