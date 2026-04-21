@@ -514,6 +514,11 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { deletionReason } = req.body;
     const user = req.user;
+    const orderId = parseInt(id);
+
+    if (isNaN(orderId)) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
 
     // Customers MUST provide a reason to cancel their order
     if (user.role === 'customer' && (!deletionReason || !deletionReason.trim())) {
@@ -528,7 +533,7 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
 
     // Check all department tables
     for (const tbl of tableNames) {
-      const checkResult = await db.query(`SELECT id, sent_by FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [id, hotelCode]);
+      const checkResult = await db.query(`SELECT id, sent_by FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [orderId, hotelCode]);
       if (checkResult.length > 0) {
         // Customers can only cancel their own orders
         if (user.role === 'customer' && checkResult[0].sent_by !== user.id) {
@@ -545,17 +550,17 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
     }
 
     // Get order data before deletion for logging
-    const orderData = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
+    const orderData = await db.query(`SELECT * FROM ${tableName} WHERE id = ?`, [orderId]);
     
     // Clear any scheduled reminders for this order
-    orderNotifications.clearReminders(id);
+    orderNotifications.clearReminders(orderId);
     
     // Soft delete the order by setting deleted_at timestamp
     await db.query(`
       UPDATE ${tableName} 
       SET deleted_at = ?
       WHERE id = ?
-    `, [new Date(), id]);
+    `, [new Date(), orderId]);
 
     // Log the deletion
     const userFullName = user.first_name && user.last_name 
@@ -568,7 +573,7 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
       INSERT INTO order_logs (order_id, order_type, action_type, changed_by, changed_by_name, hotel_code, old_data, change_description)
       VALUES (?, ?, 'deleted', ?, ?, ?, ?, ?)
     `, [
-      id,
+      orderId,
       getOrderTypeFromTableName(tableName),
       user.id,
       userFullName,
@@ -1013,6 +1018,11 @@ app.post('/api/orders/:id/restore', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const user = req.user;
+    const orderId = parseInt(id);
+
+    if (isNaN(orderId)) {
+      return res.status(400).json({ error: 'Invalid order ID' });
+    }
 
     // Check if user is admin or supervisor
     if (user.role !== 'admin' && user.role !== 'supervisor') {
@@ -1024,13 +1034,13 @@ app.post('/api/orders/:id/restore', authenticateToken, async (req, res) => {
     let orderFound = false;
 
     // Check engineering_orders first
-    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NOT NULL`, [id, user.hotel_code || user.hotelCode]);
+    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NOT NULL`, [orderId, user.hotel_code || user.hotelCode]);
     if (checkResult.length > 0) {
       tableName = 'engineering_orders';
       orderFound = true;
     } else {
       // Check housekeeping_orders
-      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NOT NULL`, [id, user.hotel_code || user.hotelCode]);
+      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NOT NULL`, [orderId, user.hotel_code || user.hotelCode]);
       if (checkResult.length > 0) {
         tableName = 'housekeeping_orders';
         orderFound = true;
@@ -1046,7 +1056,7 @@ app.post('/api/orders/:id/restore', authenticateToken, async (req, res) => {
       UPDATE ${tableName} 
       SET deleted_at = NULL
       WHERE id = ?
-    `, [id]);
+    `, [orderId]);
 
     // Return success response
     res.json({ success: true, message: 'Order restored successfully' });
