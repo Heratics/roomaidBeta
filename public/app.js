@@ -877,17 +877,17 @@ function startNotificationsPolling() {
     }, 10000);
 
     // DISABLED: Pending order polling is now handled by FCM reminders (scheduleReminders in orderNotifications.js)
-    // This prevents duplicate notifications
-    // notificationsInterval = setInterval(() => {
-    //     if (currentToken && dashboardScreen && dashboardScreen.style.display !== 'none') {
-    //         checkPendingNotifications();
-    //     }
-    // }, 30000);
+    // Start server-side notification polling (every 10 seconds)
+    notificationsInterval = setInterval(() => {
+        if (currentToken) {
+            checkPendingNotifications();
+        }
+    }, 10000);
 
-    // Also check immediately
+    // Check immediately on load
     checkNewOrderNotifications();
-    // checkPendingNotifications(); // Disabled - FCM handles this now
-    console.log('Notifications polling started (FCM handles reminders)');
+    checkPendingNotifications();
+    console.log('✅ Notifications polling started (server-side polling)');
 }
 
 // Check for newly created orders
@@ -1116,47 +1116,21 @@ function showPendingOrderNotification(notification) {
  */
 async function initializePushNotifications() {
     try {
-        if (!('serviceWorker' in navigator)) {
-            console.log('Service Workers not supported');
-            return;
-        }
+        // Using server-side polling for notifications instead of browser push
+        console.log('✅ Notifications: Using server-side polling (reliable, no push service dependency)');
 
-        if (!('Notification' in window)) {
-            console.log('Push Notifications not supported');
-            return;
-        }
-
-        // Check if user has been prompted before
-        const hasBeenPrompted = localStorage.getItem('notificationPrompted');
-        const notificationChoice = localStorage.getItem('notificationChoice');
-        
-        // If user already made a choice, respect it
-        if (hasBeenPrompted && notificationChoice === 'denied') {
-            console.log('User previously declined notifications');
-            return;
-        }
-        
-        // If notifications are already granted, proceed with setup
-        if (Notification.permission === 'granted') {
-            await setupPushNotifications();
-            return;
-        }
-        
-        // If user hasn't been prompted yet, show our custom modal
-        if (!hasBeenPrompted && Notification.permission === 'default') {
-            showNotificationPermissionModal();
-            return;
-        }
-        
-        // If permission was previously denied by browser, don't show modal
-        if (Notification.permission === 'denied') {
-            console.log('Notification permission previously denied by browser');
-            localStorage.setItem('notificationPrompted', 'true');
-            localStorage.setItem('notificationChoice', 'denied');
-            return;
+        // Optional: Still request notification permission for sound/badge features
+        if ('Notification' in window && Notification.permission === 'default') {
+            const hasBeenPrompted = localStorage.getItem('notificationPrompted');
+            if (!hasBeenPrompted) {
+                Notification.requestPermission().then(permission => {
+                    localStorage.setItem('notificationPrompted', 'true');
+                });
+            }
         }
     } catch (error) {
-        console.warn('Push notifications initialization failed:', error);
+        console.warn('Notification setup warning:', error);
+        // Non-critical - polling will still work
     }
 }
 
