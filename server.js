@@ -588,61 +588,41 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
  */
 app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
   try {
-    // Extract order ID from URL parameters
     const { id } = req.params;
     const user = req.user;
-
-    // Convert id to integer for database query
     const orderId = parseInt(id);
+
     if (isNaN(orderId)) {
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
-    console.log('Complete order request:', { id: orderId, user: user.id, hotel_code: user.hotel_code || user.hotelCode });
+    const hotelCode = user.hotel_code || user.hotelCode;
+    const tableNames = ['engineering_orders', 'housekeeping_orders', 'laundry_orders', 'roomservice_orders'];
 
-    // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
+    // Find which table the order is in
     let tableName = null;
-    let orderFound = false;
-
-    // Check engineering_orders first
-    console.log('Checking engineering_orders for order:', orderId);
-    let checkResult = await db.query(`SELECT id FROM engineering_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [orderId, user.hotel_code || user.hotelCode]);
-    console.log('Engineering check result:', checkResult);
-
-    if (checkResult.length > 0) {
-      tableName = 'engineering_orders';
-      orderFound = true;
-    } else {
-      // Check housekeeping_orders
-      console.log('Checking housekeeping_orders for order:', orderId);
-      checkResult = await db.query(`SELECT id FROM housekeeping_orders WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [orderId, user.hotel_code || user.hotelCode]);
-      console.log('Housekeeping check result:', checkResult);
-
+    for (const tbl of tableNames) {
+      const checkResult = await db.query(`SELECT id FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [orderId, hotelCode]);
       if (checkResult.length > 0) {
-        tableName = 'housekeeping_orders';
-        orderFound = true;
+        tableName = tbl;
+        break;
       }
     }
 
-    console.log('Order found:', orderFound, 'Table:', tableName);
-
-    if (!orderFound) {
+    if (!tableName) {
       return res.status(404).json({ error: 'Order not found or access denied' });
     }
 
-    // Update order to mark as completed and set completion timestamp
-    console.log('Updating order in table:', tableName);
-    const updateResult = await db.query(`
-      UPDATE ${tableName} 
-      SET completed_at = ?
+    // Mark order as completed
+    await db.query(`
+      UPDATE ${tableName}
+      SET completed_at = NOW()
       WHERE id = ?
-    `, [new Date(), orderId]);
-    console.log('Update result:', updateResult);
+    `, [orderId]);
 
-    // Fetch the updated order with creator and assignee information
-    console.log('Fetching updated order');
+    // Fetch the updated order
     const orders = await db.query(`
-      SELECT o.*, 
+      SELECT o.*,
              COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
              creator.username as creatorUsername,
              COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username, 'Deleted User') as receiverName,
@@ -652,21 +632,22 @@ app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
       LEFT JOIN users assignee ON o.assigned_to = assignee.id
       WHERE o.id = ?
     `, [orderId]);
-    console.log('Fetched orders:', orders);
 
-    // Check if order was found
     if (orders.length === 0) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // Return the updated order
-    console.log('Returning completed order');
+    // Clear reminders upon completion
+    try {
+      await orderNotifications.handleOrderCompletion(orderId);
+    } catch (remErr) {
+      console.warn('Clearing reminders on completion failed (non-critical):', remErr.message);
+    }
+
     res.json({ order: orders[0] });
   } catch (error) {
     console.error('Complete order error:', error);
-    console.error('Error details:', error.message);
-    console.error('Error stack:', error.stack);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
