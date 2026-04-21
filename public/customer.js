@@ -200,7 +200,7 @@ function renderOrders(orders) {
 
     container.innerHTML = orders.map(o => {
         const statusInfo  = getStatusInfo(o);
-        const canCancel   = !o.completed_at && !o.on_hold;
+        const canCancel   = !o.completed_at && !o.on_hold && !o.deleted_at;
         const createdDate = formatDate(o.created_at);
         const assignedStaffName = o.receiverName || o.receiverUsername || '';
         const isAssignedToStaff = Boolean(o.assigned_to) && String(o.assigned_to) !== String(o.sent_by);
@@ -232,6 +232,7 @@ function renderOrders(orders) {
 }
 
 function getStatusInfo(o) {
+    if (o.deleted_at)   return { cls: 'status-cancelled', icon: '✕', label: 'Cancelled' };
     if (o.completed_at) return { cls: 'status-completed', icon: '✅', label: 'Completed' };
     if (o.on_hold)      return { cls: 'status-on-hold',   icon: '⏸️', label: 'On Hold'   };
     if (o.assigned_to && String(o.assigned_to) !== String(o.sent_by)) {
