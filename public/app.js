@@ -1688,20 +1688,22 @@ function createOrderCard(order) {
             </div>
         ` : ''}
     `;
-    
-    // Log button rendering info
-    const buttonInfo = {
-        orderId: order.id,
-        department: currentDepartment,
-        isCompleted,
-        isReceived,
-        isPending,
-        assigned_to: order.assigned_to,
-        completed_at: order.completed_at,
-        shouldShowReceive: !isCompleted && !isReceived,
-        shouldShowComplete: isReceived && !isCompleted
-    };
-    console.log(`📋 Order card rendering:`, buttonInfo);
+            
+    // old consol log for diagnostics
+
+    // // Log button rendering info
+    // const buttonInfo = {
+    //     orderId: order.id,
+    //     department: currentDepartment,
+    //     isCompleted,
+    //     isReceived,
+    //     isPending,
+    //     assigned_to: order.assigned_to,
+    //     completed_at: order.completed_at,
+    //     shouldShowReceive: !isCompleted && !isReceived,
+    //     shouldShowComplete: isReceived && !isCompleted
+    // };
+    // console.log(`📋 Order card rendering:`, buttonInfo);
     
     // Add button event listeners
     const receiveBtn = card.querySelector('.receive-btn');
@@ -1710,9 +1712,11 @@ function createOrderCard(order) {
             console.log(`🔵 Receive button clicked for order ${order.id} (Department: ${currentDepartment})`);
             receiveOrder(order.id);
         });
-    } else {
-        console.log(`⚠️ Receive button not found for order ${order.id}. Conditions: isCompleted=${isCompleted}, isReceived=${isReceived}`);
-    }
+    } 
+    
+    // else {
+    //     console.log(`⚠️ Receive button not found for order ${order.id}. Conditions: isCompleted=${isCompleted}, isReceived=${isReceived}`);
+    // }
     
     const completeBtn = card.querySelector('.complete-btn');
     if (completeBtn) {
@@ -1720,9 +1724,11 @@ function createOrderCard(order) {
             console.log(`🟢 Complete button clicked for order ${order.id} (Department: ${currentDepartment})`);
             completeOrder(order.id);
         });
-    } else {
-        console.log(`⚠️ Complete button not found for order ${order.id}. Conditions: isCompleted=${isCompleted}, isReceived=${isReceived}`);
-    }
+    } 
+    
+    // else {
+    //     console.log(`⚠️ Complete button not found for order ${order.id}. Conditions: isCompleted=${isCompleted}, isReceived=${isReceived}`);
+    // }
     
     // Burger menu functionality
     const menuBtn = card.querySelector('.order-menu-btn');
