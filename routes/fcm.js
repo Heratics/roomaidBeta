@@ -169,9 +169,6 @@ function createFCMRoutes(app) {
                     webpush: {
                         headers: {
                             Urgency: messageData.urgent === 'true' ? 'high' : 'normal'
-                        },
-                        fcmOptions: {
-                            link: messageData.url || '/'
                         }
                     },
                     tokens: fcmTokens
@@ -318,9 +315,6 @@ async function sendFCMNotification(userIds, notification) {
                 webpush: {
                     headers: {
                         Urgency: messageData.urgent === 'true' ? 'high' : 'normal'
-                    },
-                    fcmOptions: {
-                        link: messageData.url || '/'
                     }
                 },
                 tokens: fcmTokens
