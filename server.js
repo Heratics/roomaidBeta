@@ -418,8 +418,8 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
  */
 app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
   try {
-    // Extract order ID from URL parameters
     const { id } = req.params;
+    const { department } = req.body;
     const user = req.user;
     const orderId = parseInt(id);
 
@@ -427,36 +427,59 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
-    // First, find which table the order is in and verify it belongs to user's hotel and is not deleted
-    let tableName = null;
-    let orderFound = false;
+    // Map the selected department directly to its order table.
+    // This prevents duplicate order IDs in different department tables
+    // from causing the wrong order to be updated.
+    const departmentTables = {
+      'Engineering': 'engineering_orders',
+      'Housekeeping': 'housekeeping_orders',
+      'Laundry': 'laundry_orders',
+      'Room Service': 'roomservice_orders'
+    };
+
+    const tableName = departmentTables[department];
+
+    if (!tableName) {
+      return res.status(400).json({ error: 'Invalid or missing department' });
+    }
+
     const hotelCode = user.hotel_code || user.hotelCode;
-    const tableNames = ['engineering_orders', 'housekeeping_orders', 'laundry_orders', 'roomservice_orders'];
 
-    // Check all department tables
-    for (const tbl of tableNames) {
-      const checkResult = await db.query(`SELECT id FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [orderId, hotelCode]);
-      if (checkResult.length > 0) {
-        tableName = tbl;
-        orderFound = true;
-        break;
-      }
+    // Verify that this exact order exists in the selected department
+    // and belongs to the logged-in user's hotel.
+    const existingOrders = await db.query(`
+      SELECT id
+      FROM ${tableName}
+      WHERE id = ?
+        AND hotel_code = ?
+        AND deleted_at IS NULL
+    `, [orderId, hotelCode]);
+
+    if (existingOrders.length === 0) {
+      return res.status(404).json({
+        error: 'Order not found in selected department or access denied'
+      });
     }
 
-    if (!orderFound) {
-      return res.status(404).json({ error: 'Order not found or access denied' });
-    }
-
-    // Update order to assign to current user (this acts as "receiving" the order)
-    await db.query(`
-      UPDATE ${tableName} 
+    // Receive the exact order from the exact department.
+    const updateResult = await db.query(`
+      UPDATE ${tableName}
       SET assigned_to = ?
       WHERE id = ?
-    `, [user.id, orderId]);
+        AND hotel_code = ?
+        AND deleted_at IS NULL
+    `, [user.id, orderId, hotelCode]);
 
-    // Fetch the updated order with creator and assignee information
+    console.log(`✅ Order ${orderId} received`, {
+      department,
+      tableName,
+      userId: user.id,
+      hotelCode
+    });
+
+    // Fetch the updated order.
     const orders = await db.query(`
-      SELECT o.*, 
+      SELECT o.*,
              COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
              creator.username as creatorUsername,
              COALESCE(CONCAT(assignee.first_name, ' ', assignee.last_name), assignee.username, 'Deleted User') as receiverName,
@@ -465,28 +488,30 @@ app.post('/api/orders/:id/receive', authenticateToken, async (req, res) => {
       LEFT JOIN users creator ON o.sent_by = creator.id
       LEFT JOIN users assignee ON o.assigned_to = assignee.id
       WHERE o.id = ?
-    `, [orderId]);
+        AND o.hotel_code = ?
+        AND o.deleted_at IS NULL
+    `, [orderId, hotelCode]);
 
-    // Check if order was found
     if (orders.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ error: 'Order not found after update' });
     }
 
-    // Clear reminders upon acceptance
     try {
-      await orderNotifications.handleOrderAcceptance(id);
+      await orderNotifications.handleOrderAcceptance(orderId);
     } catch (remErr) {
-      console.warn('Clearing reminders on acceptance failed (non-critical):', remErr.message);
+      console.warn(
+        'Clearing reminders on acceptance failed (non-critical):',
+        remErr.message
+      );
     }
 
-    // Return the updated order
     res.json({ order: orders[0] });
+
   } catch (error) {
     console.error('Receive order error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 /**
  * DELETE /api/orders/:id
  * Delete/cancel an order
@@ -585,6 +610,7 @@ app.delete('/api/orders/:id', authenticateToken, async (req, res) => {
 app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const { department } = req.body;
     const user = req.user;
     const orderId = parseInt(id);
 
@@ -592,31 +618,53 @@ app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid order ID' });
     }
 
-    const hotelCode = user.hotel_code || user.hotelCode;
-    const tableNames = ['engineering_orders', 'housekeeping_orders', 'laundry_orders', 'roomservice_orders'];
+    const departmentTables = {
+      'Engineering': 'engineering_orders',
+      'Housekeeping': 'housekeeping_orders',
+      'Laundry': 'laundry_orders',
+      'Room Service': 'roomservice_orders'
+    };
 
-    // Find which table the order is in
-    let tableName = null;
-    for (const tbl of tableNames) {
-      const checkResult = await db.query(`SELECT id FROM ${tbl} WHERE id = ? AND hotel_code = ? AND deleted_at IS NULL`, [orderId, hotelCode]);
-      if (checkResult.length > 0) {
-        tableName = tbl;
-        break;
-      }
-    }
+    const tableName = departmentTables[department];
 
     if (!tableName) {
-      return res.status(404).json({ error: 'Order not found or access denied' });
+      return res.status(400).json({ error: 'Invalid or missing department' });
     }
 
-    // Mark order as completed
+    const hotelCode = user.hotel_code || user.hotelCode;
+
+    // Verify the exact order exists in the selected department.
+    const existingOrders = await db.query(`
+      SELECT id
+      FROM ${tableName}
+      WHERE id = ?
+        AND hotel_code = ?
+        AND deleted_at IS NULL
+    `, [orderId, hotelCode]);
+
+    if (existingOrders.length === 0) {
+      return res.status(404).json({
+        error: 'Order not found in selected department or access denied'
+      });
+    }
+
+    // Complete the exact order from the exact department.
     await db.query(`
       UPDATE ${tableName}
       SET completed_at = NOW()
       WHERE id = ?
-    `, [orderId]);
+        AND hotel_code = ?
+        AND deleted_at IS NULL
+    `, [orderId, hotelCode]);
 
-    // Fetch the updated order
+    console.log(`✅ Order ${orderId} completed`, {
+      department,
+      tableName,
+      userId: user.id,
+      hotelCode
+    });
+
+    // Fetch the updated order.
     const orders = await db.query(`
       SELECT o.*,
              COALESCE(CONCAT(creator.first_name, ' ', creator.last_name), creator.username, 'Deleted User') as creatorName,
@@ -627,20 +675,25 @@ app.post('/api/orders/:id/complete', authenticateToken, async (req, res) => {
       LEFT JOIN users creator ON o.sent_by = creator.id
       LEFT JOIN users assignee ON o.assigned_to = assignee.id
       WHERE o.id = ?
-    `, [orderId]);
+        AND o.hotel_code = ?
+        AND o.deleted_at IS NULL
+    `, [orderId, hotelCode]);
 
     if (orders.length === 0) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ error: 'Order not found after update' });
     }
 
-    // Clear reminders upon completion
     try {
       await orderNotifications.handleOrderCompletion(orderId);
     } catch (remErr) {
-      console.warn('Clearing reminders on completion failed (non-critical):', remErr.message);
+      console.warn(
+        'Clearing reminders on completion failed (non-critical):',
+        remErr.message
+      );
     }
 
     res.json({ order: orders[0] });
+
   } catch (error) {
     console.error('Complete order error:', error);
     res.status(500).json({ error: 'Internal server error' });

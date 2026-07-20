@@ -1765,8 +1765,12 @@ async function receiveOrder(orderId) {
         const response = await fetch(`/api/orders/${orderId}/receive`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${currentToken}`
-            }
+                'Authorization': `Bearer ${currentToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                department: currentDepartment
+            })
         });
 
         console.log(`📤 Receive response status: ${response.status}`);
@@ -1794,8 +1798,12 @@ async function completeOrder(orderId) {
         const response = await fetch(`/api/orders/${orderId}/complete`, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${currentToken}`
-            }
+                'Authorization': `Bearer ${currentToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                department: currentDepartment
+            })
         });
         
         console.log(`✅ Complete response status: ${response.status}`);
