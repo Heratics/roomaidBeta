@@ -1225,15 +1225,15 @@ async function setupPushNotifications() {
         // Wait until the Firebase service worker is fully active
         const activeRegistration = await navigator.serviceWorker.ready;
 
-        // Check for an old/stale browser push subscription
-        const existingSubscription = await activeRegistration.pushManager.getSubscription();
+        // // Check for an old/stale browser push subscription
+        // const existingSubscription = await activeRegistration.pushManager.getSubscription();
 
-        if (existingSubscription) {
-            console.log('🧹 Removing old browser push subscription...');
-            await existingSubscription.unsubscribe();
-            localStorage.removeItem('fcmToken');
-            console.log('✅ Old push subscription removed');
-        }
+        // if (existingSubscription) {
+        //     console.log('🧹 Removing old browser push subscription...');
+        //     await existingSubscription.unsubscribe();
+        //     localStorage.removeItem('fcmToken');
+        //     console.log('✅ Old push subscription removed');
+        // }
 
         // Load compat SDK so we match the service worker version
         await loadFirebaseCompatSDK();
