@@ -302,6 +302,7 @@ async function sendFCMNotification(userIds, notification) {
         }
 
         const fcmTokens = tokens.map(t => t.fcm_token);
+        console.log(`🔍 FCM diagnostics: ${normalizedUserIds.length} target users, ${fcmTokens.length} stored tokens found`);
 
         if (fcmInitialized && admin) {
             const messageData = buildMessageData(
@@ -321,7 +322,18 @@ async function sendFCMNotification(userIds, notification) {
             };
 
             const response = await admin.messaging().sendEachForMulticast(message);
-            console.log(`📤 FCM notification sent: ${response.successCount} success, ${response.failureCount} failed`);
+            console.log(`📤 FCM result: ${response.successCount} success, ${response.failureCount} failed`);
+
+            response.responses.forEach((resp, idx) => {
+                if (resp.success) {
+                    console.log(`✅ FCM device ${idx + 1}: Firebase accepted message`);
+                } else {
+                    console.error(`❌ FCM device ${idx + 1} failed:`, {
+                        code: resp.error?.code,
+                        message: resp.error?.message
+                    });
+                }
+            });
 
             // Clean up invalid tokens
             if (response.failureCount > 0) {

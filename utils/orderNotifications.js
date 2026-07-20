@@ -34,7 +34,7 @@ async function notifyNewOrder(orderId, department, hotelCode, orderDetails) {
         // Send FCM notification to relevant users
         const userIds = users.map(u => u.id);
         if (userIds.length > 0) {
-            await sendFCMNotification(userIds, {
+            const fcmResult = await sendFCMNotification(userIds, {
                 title: '🆕 New Order Received!',
                 body: `Room ${orderDetails.roomNumber || 'N/A'}: ${orderDetails.notes || 'Service Request'}`,
                 data: {
@@ -44,6 +44,12 @@ async function notifyNewOrder(orderId, department, hotelCode, orderDetails) {
                     type: 'order-notification',
                     timestamp: new Date().toISOString()
                 }
+            });
+            console.log(`🔍 Order ${orderId} FCM delivery result:`, {
+                sent: fcmResult?.sent,
+                failed: fcmResult?.failed,
+                success: fcmResult?.success,
+                error: fcmResult?.error || null
             });
         }
         
