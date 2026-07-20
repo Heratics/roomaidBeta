@@ -58,9 +58,7 @@ function createFCMRoutes(app) {
     // Middleware: authenticate via JWT (fallback if auth.authenticateToken is missing)
     const authenticateToken = auth.authenticateToken || ((req, res, next) => {
         try {
-            const headerToken = req.headers.authorization?.split(' ')[1];
-            const sessionToken = req.session?.token;
-            const token = headerToken || sessionToken;
+            const token = req.headers.authorization?.split(' ')[1];
             if (!token) {
                 return res.status(401).json({ error: 'Access token required' });
             }

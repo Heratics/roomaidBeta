@@ -23,9 +23,6 @@ const net = require('net');
 // Cross-Origin Resource Sharing middleware for API access
 const cors = require('cors');
 
-// Session management middleware for user sessions
-const session = require('express-session');
-
 // Core application modules
 const path = require('path');
 const config = require('./config');
@@ -45,11 +42,6 @@ app.disable('x-powered-by');
 app.use(cors());
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'roomaid-session-secret',
-  resave: false,
-  saveUninitialized: false
-}));
 
 app.use((req, res, next) => {
   const headers = validation.getSecurityHeaders();
@@ -124,8 +116,8 @@ function isFrontDeskAccessUser(user) {
 }
 
 const authenticateToken = (req, res, next) => {
-  // Extract token from Authorization header or session
-  const token = req.headers.authorization?.split(' ')[1] || req.session.token;
+  // Extract token from Authorization Bearer header
+  const token = req.headers.authorization?.split(' ')[1];
 
   // Check if token exists
   if (!token) {
@@ -194,10 +186,6 @@ app.post('/api/auth/login', async (req, res) => {
     // Generate JWT token for authenticated user
     const token = auth.generateToken(user);
 
-    // Store token in session for server-side access
-    req.session.token = token;
-    req.session.user = user;
-
     // Return success response with token and user data
     res.json({
       success: true,
@@ -228,11 +216,9 @@ app.post('/api/auth/login', async (req, res) => {
 
 /**
  * POST /api/auth/logout
- * Clear user session and logout
+ * Stateless JWT logout endpoint
  */
 app.post('/api/auth/logout', (req, res) => {
-  // Destroy the user session
-  req.session.destroy();
   res.json({ success: true });
 });
 
