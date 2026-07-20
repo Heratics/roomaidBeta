@@ -1222,6 +1222,19 @@ async function setupPushNotifications() {
         console.log('✅ Firebase Service Worker registered successfully');
         serviceWorkerReady = true;
 
+        // Wait until the Firebase service worker is fully active
+        const activeRegistration = await navigator.serviceWorker.ready;
+
+        // Check for an old/stale browser push subscription
+        const existingSubscription = await activeRegistration.pushManager.getSubscription();
+
+        if (existingSubscription) {
+            console.log('🧹 Removing old browser push subscription...');
+            await existingSubscription.unsubscribe();
+            localStorage.removeItem('fcmToken');
+            console.log('✅ Old push subscription removed');
+        }
+
         // Load compat SDK so we match the service worker version
         await loadFirebaseCompatSDK();
 
@@ -1245,7 +1258,10 @@ async function setupPushNotifications() {
         // IMPORTANT: Replace this with your actual Firebase Web Push certificate (VAPID key)
         // Get it from: Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
         const vapidKey = 'BOgbNH3fw8fpwsHkAUPTIs5iZC9vB1nOIf5R-WIWqtHXPUzhwyL67Q624eibAR6HGoyd8O-XxUnsUw9VdjXK5i4'; 
-        const token = await messaging.getToken({ vapidKey, serviceWorkerRegistration: swRegistration });
+        const token = await messaging.getToken({
+            vapidKey,
+            serviceWorkerRegistration: activeRegistration
+        });
 
         if (token) {
             console.log('FCM Token obtained:', token.substring(0, 20) + '...');
