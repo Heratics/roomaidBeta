@@ -26,7 +26,7 @@ messaging.onBackgroundMessage((payload) => {
     console.log('Background message received:', payload);
 
     // All messages are data-only, so we manually show the notification
-    const notificationTitle = payload.data?.title || 'RoomAid Notification';
+    const notificationTitle = payload.data?.title || 'RoomAid';
     const notificationOptions = {
         body: payload.data?.body || 'New notification',
         icon: '/RoomAidTaskBoard.png',
@@ -57,19 +57,20 @@ self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
     if (event.action === 'view' || !event.action) {
-        // Open or focus the app
+        // Open or focus RoomAid
         event.waitUntil(
             clients.matchAll({ type: 'window', includeUncontrolled: true })
                 .then((clientList) => {
-                    // Check if app is already open
+                    const targetUrl = new URL(event.notification.data?.url || '/', self.location.origin).href;
+
                     for (const client of clientList) {
-                        if (client.url.includes('index.html') || client.url.endsWith('/')) {
+                        if (new URL(client.url).origin === self.location.origin) {
                             return client.focus();
                         }
                     }
-                    // Open new window if not already open
+
                     if (clients.openWindow) {
-                        return clients.openWindow('/');
+                        return clients.openWindow(targetUrl);
                     }
                 })
         );

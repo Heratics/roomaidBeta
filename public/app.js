@@ -1115,21 +1115,30 @@ function showPendingOrderNotification(notification) {
  */
 async function initializePushNotifications() {
     try {
-        // Using server-side polling for notifications instead of browser push
-        console.log('✅ Notifications: Using server-side polling (reliable, no push service dependency)');
+        if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+            console.log('Push notifications are not supported in this browser');
+            return;
+        }
 
-        // Optional: Still request notification permission for sound/badge features
-        if ('Notification' in window && Notification.permission === 'default') {
+        if (Notification.permission === 'granted') {
+            await setupPushNotifications();
+            return;
+        }
+
+        if (Notification.permission === 'default') {
             const hasBeenPrompted = localStorage.getItem('notificationPrompted');
             if (!hasBeenPrompted) {
-                Notification.requestPermission().then(permission => {
-                    localStorage.setItem('notificationPrompted', 'true');
-                });
+                const permission = await Notification.requestPermission();
+                localStorage.setItem('notificationPrompted', 'true');
+                localStorage.setItem('notificationChoice', permission);
+                if (permission === 'granted') {
+                    await setupPushNotifications();
+                }
             }
         }
     } catch (error) {
         console.warn('Notification setup warning:', error);
-        // Non-critical - polling will still work
+        // Non-critical - in-app polling will still work while RoomAid is open
     }
 }
 
@@ -1239,14 +1248,9 @@ async function setupPushNotifications() {
         const token = await messaging.getToken({ vapidKey, serviceWorkerRegistration: swRegistration });
 
         if (token) {
-            const previousToken = localStorage.getItem('fcmToken');
-            if (previousToken !== token) {
-                console.log('✅ New FCM Token obtained:', token.substring(0, 20) + '...');
-                await saveFCMTokenToServer(token);
-                localStorage.setItem('fcmToken', token);
-            } else {
-                console.log('ℹ️ FCM token unchanged, not re-sending');
-            }
+            console.log('FCM Token obtained:', token.substring(0, 20) + '...');
+            await saveFCMTokenToServer(token);
+            localStorage.setItem('fcmToken', token);
             pushSubscription = { token };
         } else {
             console.log('No FCM token available');
@@ -1339,13 +1343,14 @@ window.handleFCMMessage = function(payload) {
     try {
         const notificationData = payload.data || {};
         const notification = payload.notification || {};
+        const notificationBody = notificationData.body || notification.body || 'New notification';
         
         // For reminder notifications, show only in-app toast (service worker handles browser notifications)
         if (notificationData.type === 'order-reminder' || notificationData.type === 'order-escalation') {
             // Show in-app toast when app is in foreground
             const notif = {
                 id: notificationData.orderId || Date.now(),
-                order_name: notification.body || 'Reminder',
+                order_name: notificationBody,
                 department: 'Engineering',
                 level: notificationData.urgent === 'true' ? 3 : 1,
                 creatorName: 'System'
@@ -1358,7 +1363,7 @@ window.handleFCMMessage = function(payload) {
         // Extract notification details for regular orders
         const notif = {
             id: notificationData.orderId || Date.now(),
-            order_name: notificationData.orderName || notification.body || 'New Order',
+            order_name: notificationData.orderName || notificationBody || 'New Order',
             department: notificationData.department || 'Engineering',
             level: parseInt(notificationData.level) || 0,
             creatorName: notificationData.creatorName || 'Unknown'

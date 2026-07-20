@@ -11,6 +11,21 @@ const auth = require('../auth');
 let admin = null;
 let fcmInitialized = false;
 
+function buildMessageData(title, body, data) {
+    const messageData = {
+        title: String(title || 'RoomAid Notification'),
+        body: String(body || 'You have a new notification')
+    };
+
+    if (data) {
+        Object.keys(data).forEach(key => {
+            messageData[key] = String(data[key]);
+        });
+    }
+
+    return messageData;
+}
+
 // Helper: load service account from env and fix private_key newlines
 function loadServiceAccountFromEnv() {
     const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -143,20 +158,22 @@ function createFCMRoutes(app) {
 
             // Send via Firebase Admin SDK if available
             if (fcmInitialized && admin) {
-                // FCM requires all data values to be strings
-                const messageData = {};
-                if (data) {
-                    Object.keys(data).forEach(key => {
-                        messageData[key] = String(data[key]);
-                    });
-                }
+                const messageData = buildMessageData(
+                    title || 'RoomAid Notification',
+                    body || 'You have a new notification',
+                    data
+                );
                 
                 const message = {
-                    notification: {
-                        title: title || 'RoomAid Notification',
-                        body: body || 'You have a new notification'
-                    },
                     data: messageData,
+                    webpush: {
+                        headers: {
+                            Urgency: messageData.urgent === 'true' ? 'high' : 'normal'
+                        },
+                        fcmOptions: {
+                            link: messageData.url || '/'
+                        }
+                    },
                     tokens: fcmTokens
                 };
 
@@ -212,11 +229,11 @@ function createFCMRoutes(app) {
                                 },
                                 body: JSON.stringify({
                                     to: token,
-                                    notification: {
-                                        title: title || 'RoomAid Notification',
-                                        body: body || 'You have a new notification'
-                                    },
-                                    data: data || {}
+                                    data: buildMessageData(
+                                        title || 'RoomAid Notification',
+                                        body || 'You have a new notification',
+                                        data
+                                    )
                                 })
                             })
                         );
@@ -290,23 +307,22 @@ async function sendFCMNotification(userIds, notification) {
         const fcmTokens = tokens.map(t => t.fcm_token);
 
         if (fcmInitialized && admin) {
-            // FCM requires all data values to be strings
-            const messageData = {
-                title: notification.title || 'RoomAid',
-                body: notification.body || 'New notification'
-            };
-            if (notification.data) {
-                Object.keys(notification.data).forEach(key => {
-                    messageData[key] = String(notification.data[key]);
-                });
-            }
+            const messageData = buildMessageData(
+                notification.title || 'RoomAid',
+                notification.body || 'New notification',
+                notification.data
+            );
 
             const message = {
-                notification: {
-                    title: notification.title || 'RoomAid',
-                    body: notification.body || 'New notification'
-                },
                 data: messageData,
+                webpush: {
+                    headers: {
+                        Urgency: messageData.urgent === 'true' ? 'high' : 'normal'
+                    },
+                    fcmOptions: {
+                        link: messageData.url || '/'
+                    }
+                },
                 tokens: fcmTokens
             };
 
