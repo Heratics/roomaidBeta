@@ -267,7 +267,7 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
 
     // Customers can only see orders they personally submitted
     if (user.role === 'customer') {
-      query += ` AND o.sent_by = ?`;
+      query += ` AND o.sent_by = ? AND DATE(o.created_at) = CURDATE()`;
       params.push(user.id);
     }
 
