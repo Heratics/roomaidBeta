@@ -2933,19 +2933,23 @@ app.get('/api/customer/orders', authenticateToken, async (req, res) => {
     const rows = await db.query(`
       (SELECT 'Engineering' as department, ${baseFields} FROM engineering_orders o
         LEFT JOIN users assignee ON o.assigned_to = assignee.id
-        WHERE o.sent_by = ? AND o.hotel_code = ?)
+        WHERE o.sent_by = ? AND o.hotel_code = ? AND
+        DATE(o.created_at) = CURDATE())
       UNION ALL
       (SELECT 'Housekeeping' as department, ${baseFields} FROM housekeeping_orders o
         LEFT JOIN users assignee ON o.assigned_to = assignee.id
-        WHERE o.sent_by = ? AND o.hotel_code = ?)
+        WHERE o.sent_by = ? AND o.hotel_code = ? AND
+        DATE(o.created_at) = CURDATE())
       UNION ALL
       (SELECT 'Laundry' as department, ${baseFields} FROM laundry_orders o
         LEFT JOIN users assignee ON o.assigned_to = assignee.id
-        WHERE o.sent_by = ? AND o.hotel_code = ?)
+        WHERE o.sent_by = ? AND o.hotel_code = ? AND
+        DATE(o.created_at) = CURDATE())
       UNION ALL
       (SELECT 'Room Service' as department, ${baseFields} FROM roomservice_orders o
         LEFT JOIN users assignee ON o.assigned_to = assignee.id
-        WHERE o.sent_by = ? AND o.hotel_code = ?)
+        WHERE o.sent_by = ? AND o.hotel_code = ? AND
+        DATE(o.created_at) = CURDATE())
       ORDER BY created_at DESC
     `, [
       user.id, hotelCode,
