@@ -212,7 +212,7 @@ orders (
 
 ## License
 
-This project is built for hotel task management and is ready for production use,if you have any questions about pricing or any inquiries about the system please contact rubble-teck@outlook.com
+This project is built for hotel task management and is ready for production use,if you have any questions about pricing or any inquiries about the system please contact rubble-tech@outlook.com
 
 This software is proprietary and may not be copied, modified, or distributed without written permission.
 © 2025 Ahmad Alshara. All rights reserved.
